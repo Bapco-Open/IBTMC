@@ -1,0 +1,44 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Toastmasters Points Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.1/tabletop.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="script.js" defer></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Toastmasters Points Dashboard</h1>
+  <div class="controls">
+    <label for="periodSelect">Period:</label>
+    <select id="periodSelect">
+      <option value="all">All Time</option>
+      <option value="month">This Month</option>
+      <option value="quarter">This Quarter</option>
+    </select>
+
+    <label>Start Date: <input type="date" id="startDate"></label>
+    <label>End Date: <input type="date" id="endDate"></label>
+
+    <label for="memberSelect">Member:</label>
+    <select id="memberSelect"><option value="">-- Choose --</option></select>
+
+    <label><input type="checkbox" id="toggleMeetingNumbers"> Show Meeting Numbers</label>
+
+    <button id="showLeaderboard">Leaderboard</button>
+    <button id="showChart">Top 5 Chart</button>
+  </div>
+
+  <div id="memberView" class="view">
+    <h2>Member Details</h2><div id="memberData"></div>
+  </div>
+  <div id="leaderboardView" class="view hidden">
+    <h2>Leaderboard</h2><div id="leaderboard"></div>
+  </div>
+  <div id="chartView" class="view hidden">
+    <h2>Top 5 Members</h2><canvas id="topChart"></canvas>
+  </div>
+</body>
+</html>
