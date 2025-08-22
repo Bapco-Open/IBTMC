@@ -1,0 +1,11 @@
+/* style.css */
+body { font-family: Arial; max-width:800px; margin:2rem auto; padding:1rem; }
+h1 { text-align: center; color: #004d99; }
+.controls { display:flex; gap:1rem; justify-content:center; margin-bottom:1rem; flex-wrap: wrap;}
+select, button, input[type="date"] { padding:0.5rem; font-size:1rem; }
+.view.hidden { display:none; }
+.member-section { background:#eef; padding:0.75rem; margin-bottom:1rem; border-left:4px solid #337ab7; border-radius:4px; }
+table { width:100%; border-collapse: collapse; margin-top:1rem; }
+th, td { border:1px solid #ddd; padding:0.5rem; text-align:left; }
+th { background:#d9e9ff; }
+canvas { max-width:100%; height:auto; }
