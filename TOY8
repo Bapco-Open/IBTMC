@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Toastmasters Club Points Dashboard - Multi Member & Filters</title>
+<style>
+  body { font-family: 'Open Sans', sans-serif; margin: 20px; background: #f7f7f7; color: #333; }
+  header { display: flex; align-items: center; margin-bottom: 20px; }
+  .logo { height: 60px; margin-right: 20px; }
+  h1 { font-weight: 700; }
+  main { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
+  section { margin-bottom: 30px; }
+  label { margin-right: 10px; font-weight: 600; }
+  select, input[type=date], input[type=text] { margin-right: 20px; padding: 5px 10px; font-size: 1em; }
+  table { border-collapse: collapse; width: 100%; max-width: 100%; }
+  th, td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; vertical-align: middle; }
+  th { background-color: #5c2d91; color: #fff; }
+  tbody tr:nth-child(even) { background: #f2f2f2; }
+  footer { text-align: center; margin-top: 30px; font-size: 0.9em; color: #666; }
+  .toggle-label { cursor: pointer; user-select:none; }
+  .filters { margin-top: 10px; }
+  .filters label { margin-right: 15px; }
+  #memberSelect { min-width: 250px; height: 120px; }
+  #memberSearch { margin-bottom: 5px; padding: 5px; width: 250px; }
+  .scroll-container { max-height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; border-radius: 4px; background: #fff; }
+  @media (max-width: 700px) {
+    table, thead, tbody, th, td, tr { display: block; }
+    thead tr { position: absolute; top: -9999px; left: -9999px; }
+    tr { margin-bottom: 15px; }
+    td { border: none; position: relative; padding-left: 50%; }
+    td:before { 
+      position: absolute;
+      top: 8px;
+      left: 6px;
+      width: 45%;
+      white-space: nowrap;
+      font-weight: bold;
+      content: attr(data-label);
+    }
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+</head>
+<body>
+<header>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Toastmasters_International_logo.svg/2560px-Toastmasters_International_logo.svg.png" alt="Toastmasters Logo" class="logo" />
+  <h1>Toastmasters Club Points Dashboard</h1>
+</header>
+
+<main>
+  <section class="controls">
+    <label for="memberSearch">Search Members:</label>
+    <input type="text" id="memberSearch" placeholder="Type to filter members..." />
+
+    <label for="memberSelect">Select Members (Ctrl+Click or Cmd+Click):</label><br />
+    <div class="scroll-container" style="width:300px;">
+      <select id="memberSelect" multiple></select>
+    </div>
+
+    <br />
+    <label for="startDate">From:</label>
+    <input type="date" id="startDate" />
+
+    <label for="endDate">To:</label>
+    <input type="date" id="endDate" />
+  </section>
+
+  <section class="filters">
+    <label><input type="checkbox" id="filterArabicSpeeches" /> Only Arabic speeches</label>
+    <label><input type="checkbox" id="filterOfficers" /> Only Officers</label>
+    <label><input type="checkbox" id="filterAwards" /> Include Awards</label>
+  </section>
+
+  <section id="memberDetailsSection">
+    <h2>Selected Members Points Comparison</h2>
+    <div id="memberDetails">
+      <p>Please select one or more members and date range above.</p>
+    </div>
+  </section>
+
+  <section id="leaderboardSection">
+    <h2>Leaderboard</h2>
+    <div id="leaderboard"></div>
+    <canvas id="top5Chart" width="600" height="300"></canvas>
+  </section>
+</main>
+
+<footer>
+  <p>Powered by Toastmasters Club Dashboard</p>
+</footer>
+
+<script defer>
+(async function() {
+  const DATA_SOURCES = {
+    roleTaking: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=23380471&single=true&output=csv',
+    speeches: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=170161438&single=true&output=csv',
+    evaluations: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=335593996&single=true&output=csv',
+    levelCompletions: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1646576393&single=true&output=csv',
+    awards: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=302763050&single=true&output=csv',
+    excom: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=710668362&single=true&output=csv',
+    tableTopics: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=618267332&single=true&output=csv',
+    earlyAttendance: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=621559031&single=true&output=csv',
+    lastMinuteRoles: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=340628808&single=true&output=csv',
+    attendance: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=409764106&single=true&output=csv',
+    summary: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1559274430&single=true&output=csv'
+  };
+
+  const data = {};
+  let membersSet = new Set();
+
+  // Utility functions
+  function parseDate(str) {
+    if (!str) return null;
+    let d = new Date(str);
+    if (isNaN(d)) {
+      // Try splitting
+      const parts = str.split(/[-\/]/);
+      if (parts.length === 3) d = new Date(parts[0], parts[1]-1, parts[2]);
+    }
+    return d;
+  }
+
+  // Fetch and parse CSV
+  async function fetchCSV(url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const text = await response.text();
+      return Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+    } catch (err) {
+      console.error('Error fetching CSV:', err);
+      return [];
+    }
+  }
+
+  // Fetch all datasets
+  async function fetchAllData() {
+    for (const key of Object.keys(DATA_SOURCES)) {
+      data[key] = await fetchCSV(DATA_SOURCES[key]);
+    }
+  }
+
+  // Gather all unique members from all datasets
+  function gatherMembers() {
+    membersSet.clear();
+    const addMember = (m) => { if (m && m.trim()) membersSet.add(m.trim()); };
+    for (const key in data) {
+      data[key].forEach(row => {
+        for (const prop of ['Member', 'Role Taker', 'Speaker', 'Role', 'Role_Taker', 'Role_Taker_Name', 'RoleName', 'Name']) {
+          if(row[prop]) addMember(row[prop]);
+        }
+      });
+    }
+  }
+
+  // Filters
+
+  // Check if a date is in range (inclusive)
+  function inRange(dateStr, startDate, endDate) {
+    if (!dateStr) return false;
+    const d = parseDate(dateStr);
+    if (!d) return false;
+    if (startDate && d < startDate) return false;
+    if (endDate && d > endDate) return false;
+    return true;
+  }
+
+  // Points calculation per member with filter options
+  function calculateMemberPoints(member, startDate, endDate, filters = {}) {
+    if (!member) return { totalPoints: 0, breakdown: {} };
+
+    // Initialize categories
+    const breakdown = {
+      'Early Attendance': 0,
+      'Role Taking': 0,
+      'Last Minute Role': 0,
+      'Speeches': 0,
+      'Evaluations': 0,
+      'Table Topics': 0,
+      'Awards': 0,
+      'Club Officer': 0,
+      'Subcommittees': 0,
+      'Contests': 0,
+      'Levels & DTMs': 0,
+      'Attendance %': 0,
+      'Arabic Speech Bonus': 0
+    };
+
+    // --- Early Attendance ---
+    if (data.earlyAttendance && (!filters.onlyOfficers || !filters.onlyOfficers)) {
+      data.earlyAttendance.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date, startDate, endDate)) {
+          const timeStr = row['Time'];
+          let points = 0.25;
+          if (timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            if (h < 17 || (h === 17 && m <= 30)) points += 2 - 0.25;
+            else if (h < 17 || (h === 17 && m <= 45)) points += 1 - 0.25;
+            else if (h < 18) points += 0.5 - 0.25;
+          }
+          breakdown['Early Attendance'] += points;
+        }
+      });
+    }
+
+    // --- Role Taking ---
+    if (data.roleTaking) {
+      data.roleTaking.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date, startDate, endDate)) {
+          if (!filters.onlyOfficers || (filters.onlyOfficers && isOfficer(member, startDate, endDate))) {
+            breakdown['Role Taking'] += 1;
+          }
+        }
+      });
+    }
+
+    // --- Last Minute Roles ---
+    if (data.lastMinuteRoles) {
+      data.lastMinuteRoles.forEach(row => {
+        if (row['Role Taker']?.trim() === member && inRange(row.Date, startDate, endDate)) {
+          if (!filters.onlyOfficers || (filters.onlyOfficers && isOfficer(member, startDate, endDate))) {
+            breakdown['Last Minute Role'] += 1;
+          }
+        }
+      });
+    }
+
+    // --- Speeches ---
+    if (data.speeches) {
+      data.speeches.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date, startDate, endDate)) {
+          if (filters.onlyArabicSpeeches && (!row.Language || !row.Language.toLowerCase().includes('arabic'))) return;
+          breakdown['Speeches'] += 3;
+          if (row.Language && row.Language.toLowerCase().includes('arabic')) {
+            breakdown['Arabic Speech Bonus'] += 1;
+          }
+        }
+      });
+    }
+
+    // --- Evaluations ---
+    if (data.evaluations) {
+      data.evaluations.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date, startDate, endDate)) {
+          breakdown['Evaluations'] += 2;
+        }
+      });
+    }
+
+    // --- Table Topics ---
+    if (data.tableTopics) {
+      data.tableTopics.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date, startDate, endDate)) {
+          breakdown['Table Topics'] += 1;
+        }
+      });
+    }
+
+    // --- Awards ---
+    if (filters.includeAwards && data.awards) {
+      data.awards.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date, startDate, endDate)) {
+          if (row.Award) {
+            const award = row.Award.toLowerCase();
+            if (award.includes('best speaker')) breakdown['Awards'] += 3;
+            else if (award.includes('best evaluator')) breakdown['Awards'] += 3;
+            else if (award.includes('best table topics')) breakdown['Awards'] += 2;
+            else if (award.includes('best role taker')) breakdown['Awards'] += 2;
+          }
+        }
+      });
+    }
+
+    // --- Club Officer & Subcommittees ---
+    if (data.excom) {
+      data.excom.forEach(row => {
+        if (row.Member?.trim() === member) {
+          const roleStart = parseDate(row['Start Date']);
+          const roleEnd = parseDate(row['End Date']) || new Date();
+          if (startDate && roleEnd < startDate) return;
+          if (endDate && roleStart > endDate) return;
+          const servedStart = startDate && roleStart < startDate ? startDate : roleStart;
+          const servedEnd = endDate && roleEnd > endDate ? endDate : roleEnd;
+          const fraction = yearFraction(servedStart, servedEnd);
+          if (row.Role?.toLowerCase().includes('officer')) {
+            if (!filters.onlyOfficers || filters.onlyOfficers) {
+              breakdown['Club Officer'] += 5 * fraction;
+            }
+          } else {
+            if (!filters.onlyOfficers) {
+              breakdown['Subcommittees'] += 3 * fraction;
+            }
+          }
+        }
+      });
+    }
+
+    // --- Contests ---
+    if (data.summary) {
+      data.summary.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date, startDate, endDate)) {
+          if (row.Contest && row.Participation?.toLowerCase() === 'yes') {
+            breakdown['Contests'] += 5;
+            if (row.Result && row.Result.toLowerCase().includes('winner')) {
+              breakdown['Contests'] += 10;
+            }
+          }
+        }
+      });
+    }
+
+    // --- Levels & DTMs ---
+    if (data.levelCompletions) {
+      data.levelCompletions.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date, startDate, endDate)) {
+          const level = row.Level?.toLowerCase();
+          if (!level) return;
+          if (level.includes('dtm')) breakdown['Levels & DTMs'] += 50;
+          else breakdown['Levels & DTMs'] += 10;
+        }
+      });
+    }
+
+    // --- Attendance % ---
+    if (data.attendance) {
+      const meetings = new Set();
+      let attendedCount = 0;
+      data.attendance.forEach(row => {
+        if (row.Member?.trim() === member) {
+          if (inRange(row.Date, startDate, endDate)) {
+            meetings.add(row.Date);
+            if (row.Present && row.Present.toLowerCase() === 'yes') {
+              attendedCount++;
+            }
+          }
+        }
+      });
+      const totalMeetings = meetings.size || 1;
+      const attendancePercent = attendedCount / totalMeetings;
+      if (attendancePercent > 0.75) {
+        breakdown['Attendance %'] += 3;
+      }
+    }
+
+    // Sum all
+    const totalPoints = Object.values(breakdown).reduce((a,b) => a + b, 0);
+
+    return { totalPoints, breakdown };
+  }
+
+  // Helper: calculate fraction of year between two dates
+  function yearFraction(start, end) {
+    if (!start || !end || end < start) return 0;
+    return (end - start) / (365 * 24 * 60 * 60 * 1000);
+  }
+
+  // Check if member is an officer in excom data (at least one role with officer in it during date range)
+  function isOfficer(member, startDate, endDate) {
+    if (!data.excom) return false;
+    return data.excom.some(row => {
+      if (row.Member?.trim() !== member) return false;
+      if (!row.Role?.toLowerCase().includes('officer')) return false;
+      const roleStart = parseDate(row['Start Date']);
+      const roleEnd = parseDate(row['End Date']) || new Date();
+      if (startDate && roleEnd < startDate) return false;
+      if (endDate && roleStart > endDate) return false;
+      return true;
+    });
+  }
+
+  // Populate members list in multi-select
+  function populateMembersList() {
+    const memberSelect = document.getElementById('memberSelect');
+    memberSelect.innerHTML = '';
+    const members = Array.from(membersSet).sort((a,b) => a.localeCompare(b));
+    members.forEach(m => {
+      const option = document.createElement('option');
+      option.value = m;
+      option.textContent = m;
+      memberSelect.appendChild(option);
+    });
+  }
+
+  // Filter member list by search term
+  function filterMembers(searchTerm) {
+    const memberSelect = document.getElementById('memberSelect');
+    const options = memberSelect.options;
+    const term = searchTerm.trim().toLowerCase();
+    for (let i = 0; i < options.length; i++) {
+      const val = options[i].value.toLowerCase();
+      options[i].style.display = val.includes(term) ? '' : 'none';
+    }
+  }
+
+  // Display selected members breakdown table
+  function displayMemberBreakdown(selectedMembers, startDate, endDate, filters) {
+    const container = document.getElementById('memberDetails');
+    if (!selectedMembers.length) {
+      container.innerHTML = '<p>Please select one or more members and date range above.</p>';
+      return;
+    }
+
+    // Categories to show
+    const categories = [
+      'Early Attendance', 'Role Taking', 'Last Minute Role', 'Speeches', 'Arabic Speech Bonus', 'Evaluations',
+      'Table Topics', 'Awards', 'Club Officer', 'Subcommittees', 'Contests', 'Levels & DTMs', 'Attendance %'
+    ];
+
+    // Build table
+    let html = '<table><thead><tr><th>Category</th>';
+    selectedMembers.forEach(m => {
+      html += `<th>${m}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    // Calculate for each member and category
+    const memberPointsMap = {};
+    selectedMembers.forEach(m => {
+      memberPointsMap[m] = calculateMemberPoints(m, startDate, endDate, filters);
+    });
+
+    categories.forEach(cat => {
+      html += `<tr><td>${cat}</td>`;
+      selectedMembers.forEach(m => {
+        const val = memberPointsMap[m].breakdown[cat];
+        html += `<td data-label="${cat}">${val.toFixed(2)}</td>`;
+      });
+      html += '</tr>';
+    });
+
+    // Total row
+    html += `<tr style="font-weight:bold; background:#ddd;"><td>Total Points</td>`;
+    selectedMembers.forEach(m => {
+      html += `<td data-label="Total">${memberPointsMap[m].totalPoints.toFixed(2)}</td>`;
+    });
+    html += '</tr></tbody></table>';
+
+    container.innerHTML = html;
+  }
+
+  // Display leaderboard of all members (filtered by date and filters)
+  function displayLeaderboard(startDate, endDate, filters) {
+    const container = document.getElementById('leaderboard');
+    let html = '<table><thead><tr><th>Rank</th><th>Member</th><th>Total Points</th></tr></thead><tbody>';
+
+    const membersArray = Array.from(membersSet);
+    const scoredMembers = membersArray.map(m => {
+      const result = calculateMemberPoints(m, startDate, endDate, filters);
+      return { member: m, totalPoints: result.totalPoints };
+    });
+    scoredMembers.sort((a,b) => b.totalPoints - a.totalPoints);
+
+    scoredMembers.forEach((m, i) => {
+      html += `<tr><td>${i+1}</td><td>${m.member}</td><td>${m.totalPoints.toFixed(2)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+
+    // Draw top 5 bar chart
+    drawTop5Chart(scoredMembers.slice(0,5));
+  }
+
+  // Draw bar chart for top 5 members
+  function drawTop5Chart(top5Data) {
+    const ctx = document.getElementById('top5Chart').getContext('2d');
+    if(window.top5ChartInstance) {
+      window.top5ChartInstance.destroy();
+    }
+    window.top5ChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: top5Data.map(d => d.member),
+        datasets: [{
+          label: 'Points',
+          data: top5Data.map(d => d.totalPoints.toFixed(2)),
+          backgroundColor: 'rgba(92,45,145,0.7)',
+          borderColor: 'rgba(92,45,145,1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision:0 }
+          }
+        }
+      }
+    });
+  }
+
+  // Event listeners & main update
+  function setupEventListeners() {
+    const memberSelect = document.getElementById('memberSelect');
+    const memberSearch = document.getElementById('memberSearch');
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    const filterArabicSpeeches = document.getElementById('filterArabicSpeeches');
+    const filterOfficers = document.getElementById('filterOfficers');
+    const filterAwards = document.getElementById('filterAwards');
+
+    function updateDashboard() {
+      const selectedMembers = Array.from(memberSelect.selectedOptions).map(o => o.value);
+      const startDate = startDateInput.value ? new Date(startDateInput.value) : null;
+      const endDate = endDateInput.value ? new Date(endDateInput.value) : null;
+      const filters = {
+        onlyArabicSpeeches: filterArabicSpeeches.checked,
+        onlyOfficers: filterOfficers.checked,
+        includeAwards: filterAwards.checked
+      };
+      displayMemberBreakdown(selectedMembers, startDate, endDate, filters);
+      displayLeaderboard(startDate, endDate, filters);
+    }
+
+    memberSelect.addEventListener('change', updateDashboard);
+    memberSearch.addEventListener('input', e => {
+      filterMembers(e.target.value);
+    });
+    startDateInput.addEventListener('change', updateDashboard);
+    endDateInput.addEventListener('change', updateDashboard);
+    filterArabicSpeeches.addEventListener('change', updateDashboard);
+    filterOfficers.addEventListener('change', updateDashboard);
+    filterAwards.addEventListener('change', updateDashboard);
+  }
+
+  // Initial data load & UI setup
+  async function init() {
+    await fetchAllData();
+    gatherMembers();
+    populateMembersList();
+    setupEventListeners();
+  }
+
+  init();
+})();
+</script>
+
+</body>
+</html>
