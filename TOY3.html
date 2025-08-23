@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toastmasters Club – Points Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --tm-primary: #004165;
+      --tm-accent: #772432;
+      --tm-highlight: #f2df74;
+      --tm-light: #f7f7f7;
+      --tm-text: #333;
+      --font-main: 'Open Sans', Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: var(--font-main);
+      color: var(--tm-text);
+      background: var(--tm-light);
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: var(--tm-primary);
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    header img { height: 50px; }
+    header h1 {
+      margin: 0;
+      font-size: 1.7rem;
+      font-weight: bold;
+    }
+    main { flex: 1; padding: 1rem 2rem; max-width: 1100px; margin: auto; }
+    .controls { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+    .controls label {
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    .controls select, .controls input[type="date"] {
+      padding: 0.4rem 0.6rem;
+      font-size: 1rem;
+      border: 1px solid var(--tm-accent);
+      border-radius: 4px;
+    }
+    .controls label.toggle { display: flex; align-items: center; font-weight: bold; }
+    .controls label.toggle input { margin-right: 0.5rem; }
+    section h2 {
+      border-bottom: 2px solid var(--tm-accent);
+      padding-bottom: 0.2rem;
+      font-size: 1.4rem;
+      margin-top: 1.5rem;
+    }
+    section.member-category {
+      margin-bottom: 2rem;
+      border: 1px solid #ccc;
+      background: white;
+      border-radius: 6px;
+      padding: 0.8rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .table-controls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .table-controls .filter-input {
+      flex: 1;
+      min-width: 180px;
+      padding: 0.4rem 0.6rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .table-controls button {
+      background: var(--tm-accent);
+      color: white;
+      padding: 0.4rem 1rem;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .table-controls button:hover {
+      background: #5a1f2e;
+    }
+    .table-container { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+    }
+    th, td {
+      padding: 0.5rem 0.8rem;
+      border: 1px solid #ccc;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: var(--tm-accent);
+      color: white;
+      font-weight: bold;
+    }
+    tr:nth-child(even) { background: #f9f9f9; }
+    tr:hover { background: var(--tm-highlight); }
+    .no-data { font-style: italic; color: #666; }
+    .pagination {
+      margin-top: 0.5rem;
+      display: flex;
+      gap: 0.3rem;
+    }
+    .pagination button {
+      background: var(--tm-accent);
+      color: white;
+      padding: 0.3rem 0.6rem;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .pagination button[disabled] {
+      background: #aaa;
+      cursor: default;
+    }
+    #leaderboard ol {
+      padding-left: 1.2rem;
+      font-size: 1rem;
+    }
+    #leaderboard canvas { max-width: 100%; margin-top: 1rem; }
+    footer {
+      padding: 1rem 2rem;
+      text-align: center;
+      background: var(--tm-primary);
+      color: white;
+      font-size: 0.9rem;
+    }
+    @media (max-width: 600px) {
+      .controls { flex-direction: column; }
+      .table-controls { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/f/f3/Toastmasters_International_logo.svg"
+         alt="Toastmasters International Logo" />
+    <h1>Toastmasters Club Points Dashboard</h1>
+  </header>
+  <main>
+    <section class="controls" aria-label="Filters">
+      <label for="memberSelect">Member:</label>
+      <select id="memberSelect" disabled><option>Loading...</option></select>
+      <label for="startDate">From:</label>
+      <input type="date" id="startDate" disabled>
+      <label for="endDate">To:</label>
+      <input type="date" id="endDate" disabled>
+      <label class="toggle"><input type="checkbox" id="toggleMeeting"> Show Meeting Numbers</label>
+    </section>
+
+    <section id="memberDetailsSection">
+      <h2>Member Detailed Points</h2>
+      <div id="memberDetails"><p>Please select a member and date range.</p></div>
+      <button id="exportAllBtn" style="display:none; margin-top:0.5rem;">Export All</button>
+    </section>
+
+    <section id="leaderboardSection">
+      <h2>Leaderboard</h2>
+      <div id="leaderboard">Loading leaderboard...</div>
+      <canvas id="top5Chart" aria-label="Top 5 Members Chart"></canvas>
+    </section>
+  </main>
+  <footer>Powered by Toastmasters Club Dashboard</footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    const csvUrls = {
+      "Role Taking":        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=23380471&single=true&output=csv",
+      "Speeches":           "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=170161438&single=true&output=csv",
+      "Evaluations":        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=335593996",
+      "Level Completions":  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1646576393",
+      "Awards":             "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=302763050",
+      "ExCom & Sub":        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=710668362",
+      "Table Topics":       "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=618267332",
+      "Early Attendance":   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1928408168&single=true&output=csv"
+    };
+
+    const allData = {};
+    const memberSet = new Set();
+    const state = {};
+
+    function escapeHtml(s) {
+      return s ? s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m])) : '';
+    }
+
+    function capitalize(s) {
+      return s.replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function parseD(s) {
+      let d = new Date(s);
+      return isNaN(d) ? null : d;
+    }
+
+    function ptsOf(cat, row) {
+      const p = row.points ? Number(row.points) : 0;
+      return isNaN(p) ? 0 : p;
+    }
+
+    function loadData() {
+      const keys = Object.keys(csvUrls);
+      const arr = keys.map(k =>
+        fetch(csvUrls[k])
+          .then(r => r.ok ? r.text() : Promise.reject())
+          .then(txt => {
+            const parsed = Papa.parse(txt.trim(), { header: true, skipEmptyLines: true });
+            allData[k] = parsed.data;
+            parsed.data.forEach(r => r.Name && memberSet.add(r.Name.trim()));
+          })
+          .catch(e => allData[k] = [])
+      );
+      return Promise.all(arr);
+    }
+
+    function populateMembers() {
+      const sel = document.getElementById('memberSelect');
+      sel.innerHTML = '<option value="" disabled selected>-- Choose Member --</option>';
+      Array.from(memberSet).sort().forEach(m => sel.insertAdjacentHTML('beforeend', `<option>${escapeHtml(m)}</option>`));
+      sel.disabled = false;
+    }
+
+    function filtRows(cat, m, fD, tD) {
+      return allData[cat].filter(r => {
+        if (!r.Name || r.Name.trim() !== m) return false;
+        const d = parseD(r['Date']||r['Meeting Date']||'');
+        if (fD && (!d || d < fD)) return false;
+        if (tD && (!d || d > tD)) return false;
+        return true;
+      });
+    }
+
+    function makeTable(cat, rows, showMeetNum, page=1) {
+      if (!rows.length) return '<p class="no-data">No records.</p>';
+      const cols = Object.keys(rows[0]).filter(c => showMeetNum || !/meeting ?no/i.test(c));
+      let th = cols.map(c=>`<th>${escapeHtml(capitalize(c))}</th>`).join('');
+      let tr = paginate(rows, page).map(r=>'<tr>'+cols.map(c=>`<td>${escapeHtml(r[c]||'')}</td>`).join('')+'</tr>').join('');
+      const totPages = Math.ceil(rows.length/10);
+      let pg='';
+      pg += `<div class="pagination">${[...new Set(['«', '‹', ...Array(totPages).keys(), '›', '»'])].map((lbl, i)=>{
+        const p = lbl==='«'?1:lbl==='‹'?page-1:lbl==='›'?page+1:lbl==='»'?totPages:lbl;
+        return `<button data-cat="${cat}" data-page="${p}" ${p<1||p>totPages?'disabled':''}>${lbl}</button>`;
+      }).join('')}</div>`;
+      return `<table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>${pg}`;
+    }
+
+    function paginate(a, p=1) { return a.slice((p-1)*10, p*10); }
+
+    function renderDetails() {
+      const m = document.getElementById('memberSelect').value;
+      const fD = parseD(document.getElementById('startDate').value);
+      const tD = parseD(document.getElementById('endDate').value);
+      const showNum = document.getElementById('toggleMeeting').checked;
+      const md = document.getElementById('memberDetails');
+      md.innerHTML = '';
+      document.getElementById('exportAllBtn').style.display = 'inline-block';
+      Object.keys(allData).forEach(cat => {
+        const rows = filtRows(cat, m, fD, tD);
+        state[cat] = {rows, page:1, showNum, filter:''};
+        md.insertAdjacentHTML('beforeend', `
+          <section class="member-category"><h3>${capitalize(cat)}</h3>
+            <div class="table-controls">
+              <input class="filter-input" placeholder="Filter ${cat}..." data-cat="${cat}">
+              <button data-cat="${cat}" class="export-btn">Export CSV</button>
+            </div>
+            <div id="tbl-${cat}">${makeTable(cat, rows, showNum)}</div>
+          </section>`);
+      });
+      attachControls();
+    }
+
+    function attachControls() {
+      document.querySelectorAll('.filter-input').forEach(inp => {
+        inp.oninput = e => {
+          const cat = e.target.dataset.cat;
+          state[cat].filter = e.target.value.toLowerCase();
+          state[cat].page = 1;
+          renderCategory(cat);
+        };
+      });
+      document.querySelectorAll('.pagination button').forEach(b => {
+        b.onclick = e => {
+          const cat = b.dataset.cat;
+          state[cat].page = Number(b.dataset.page);
+          renderCategory(cat);
+        };
+      });
+      document.querySelectorAll('.export-btn').forEach(btn => {
+        btn.onclick = e => {const cat=e.dataset.cat; exportCSV(cat);});
+      });
+    }
+
+    function renderCategory(cat) {
+      let rows = state[cat].rows;
+      if (state[cat].filter) {
+        rows = rows.filter(r=>Object.values(r).some(v=>(v||'').toString().toLowerCase().includes(state[cat].filter)));
+      }
+      state[cat].filtered=rows;
+      document.getElementById(`tbl-${cat}`).innerHTML = makeTable(cat, rows, state[cat].showNum, state[cat].page);
+      attachControls();
+    }
+
+    function exportCSV(cat) {
+      const rows = state[cat].filtered || state[cat].rows;
+      if (!rows.length) return alert('No data');
+      const csv = Papa.unparse(rows);
+      const blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download=cat.replace(/\s+/g,'_')+'.csv';
+      a.click();
+    }
+
+    function exportAll() {
+      const combined = [];
+      Object.keys(state).forEach(cat=> {
+        (state[cat].filtered || state[cat].rows).forEach(r => combined.push({Category:cat, ...r}));
+      });
+      if (!combined.length) return alert('No data');
+      const csv = Papa.unparse(combined);
+      const blob = new Blob([csv], {type:'text/csv'}),a=document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'All_Member_Data.csv'; a.click();
+    }
+
+    function showLeaderboard() {
+      const fD = parseD(document.getElementById('startDate').value);
+      const tD = parseD(document.getElementById('endDate').value);
+      const tot = {};
+      Object.keys(allData).forEach(cat=>{
+        allData[cat].forEach(r=>{
+          const d = parseD(r['Date']||r['Meeting Date']||'');
+          if ((!fD||d>=fD)&&(!tD||d<=tD)&&r.points && r.Name) {
+            tot[r.Name]=(tot[r.Name]||0)+Number(r.points);
+          }
+        });
+      });
+      const sorted = Object.entries(tot).sort((a,b)=>b[1]-a[1]);
+      const lb = document.getElementById('leaderboard');
+      lb.innerHTML = '<ol>' + sorted.map(e=>`<li>${escapeHtml(e[0])}: ${e[1]}</li>`).join('') + '</ol>';
+      const ctx = document.getElementById('top5Chart').getContext('2d');
+      if (window.myChart) myChart.destroy();
+      const top = sorted.slice(0,5);
+      window.myChart = new Chart(ctx, {
+        type: 'bar', data: { labels: top.map(e=>e[0]), datasets:[{data:top.map(e=>e[1]), backgroundColor:'#772432'}] },
+        options: { responsive: true, plugins:{legend:{display:false}} }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData().then(()=>{
+        populateMembers();
+        document.getElementById('startDate').disabled=false;
+        document.getElementById('endDate').disabled=false;
+        document.getElementById('memberSelect').onchange =
+          () => { renderDetails(); showLeaderboard(); };
+        document.getElementById('startDate').onchange=() => showLeaderboard();
+        document.getElementById('endDate').onchange=() => showLeaderboard();
+        document.getElementById('toggleMeeting').onchange=() => renderDetails();
+        document.getElementById('exportAllBtn').onclick=exportAll;
+        showLeaderboard();
+      });
+    });
+  </script>
+</body>
+</html>
