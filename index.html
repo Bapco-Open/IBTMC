@@ -3,77 +3,285 @@
 <head>
   <meta charset="UTF-8" />
   <title>Toastmasters Points Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .hidden { display: none; }
-    select, input[type=date], button { margin: 5px; padding: 5px; }
-    table { border-collapse: collapse; width: 100%; max-width: 600px; margin: 10px 0; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #eee; }
-    .member-section { margin-bottom: 20px; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      background: #f9fafb;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background-color: #004080;
+      color: white;
+      padding: 20px 30px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 1.8rem;
+      letter-spacing: 1px;
+      box-shadow: 0 3px 5px rgba(0,0,0,0.1);
+    }
+    main {
+      flex-grow: 1;
+      padding: 30px;
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: center;
+      margin-bottom: 25px;
+    }
+    label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-right: 6px;
+    }
+    select, input[type=date] {
+      padding: 7px 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      min-width: 140px;
+      transition: border-color 0.3s;
+    }
+    select:focus, input[type=date]:focus {
+      outline: none;
+      border-color: #004080;
+      box-shadow: 0 0 5px rgba(0,64,128,0.5);
+    }
+    button {
+      background-color: #004080;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      font-size: 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #003060;
+    }
+    #memberSelect {
+      flex-grow: 1;
+      min-width: 180px;
+      max-width: 280px;
+      cursor: pointer;
+    }
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.95rem;
+      color: #004080;
+    }
+    .checkbox-wrapper input[type=checkbox] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .hidden {
+      display: none !important;
+    }
+    h2 {
+      color: #004080;
+      font-weight: 700;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #004080;
+      padding-bottom: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 25px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      background: white;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #e3e8ef;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+    th {
+      background-color: #004080;
+      color: white;
+      font-weight: 600;
+      user-select: none;
+    }
+    tr:hover {
+      background-color: #f1f7ff;
+    }
+    .member-section {
+      margin-bottom: 30px;
+      padding: 15px;
+      background: white;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+    .loading-spinner {
+      margin: 40px auto;
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #004080;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% {transform: rotate(0deg);}
+      100% {transform: rotate(360deg);}
+    }
+    footer {
+      text-align: center;
+      font-size: 0.85rem;
+      padding: 15px 10px;
+      background-color: #004080;
+      color: white;
+      margin-top: auto;
+      user-select: none;
+    }
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      border-bottom: 1px dotted #004080;
+      cursor: help;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 180px;
+      background-color: #004080;
+      color: #fff;
+      text-align: center;
+      border-radius: 4px;
+      padding: 6px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%; 
+      left: 50%;
+      margin-left: -90px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 0.8rem;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+    /* Responsive */
+    @media (max-width: 600px) {
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      select, input[type=date], button {
+        min-width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
 
-  <h1>Toastmasters Points Dashboard</h1>
+<header>Toastmasters Club Points Dashboard</header>
 
-  <div>
-    <label for="memberSelect">Select Member:</label>
-    <select id="memberSelect">
-      <option value="">-- Choose --</option>
+<main>
+  <section class="controls" aria-label="Filters and controls">
+
+    <label for="memberSelect">Member:</label>
+    <select id="memberSelect" aria-describedby="memberHelp">
+      <option value="">-- Choose Member --</option>
     </select>
-  </div>
+    <span id="memberHelp" class="tooltip" tabindex="0">?
+      <span class="tooltiptext">Select a member to see their points details.</span>
+    </span>
 
-  <div>
-    <label for="periodSelect">Filter by Period:</label>
-    <select id="periodSelect">
+    <label for="periodSelect" class="tooltip">Period:
+      <span class="tooltiptext">Choose a preset time period filter</span>
+    </label>
+    <select id="periodSelect" aria-describedby="periodHelp">
       <option value="all" selected>All Time</option>
       <option value="month">This Month</option>
       <option value="quarter">This Quarter</option>
     </select>
+    <span id="periodHelp" class="tooltip" tabindex="0">?
+      <span class="tooltiptext">Alternatively use the custom date pickers below.</span>
+    </span>
 
-    <label for="startDate">Start Date:</label>
-    <input type="date" id="startDate" />
+    <label for="startDate" class="tooltip">Start Date:
+      <span class="tooltiptext">Pick the start date for filtering points.</span>
+    </label>
+    <input type="date" id="startDate" aria-describedby="startHelp" />
 
-    <label for="endDate">End Date:</label>
-    <input type="date" id="endDate" />
-  </div>
+    <span id="startHelp" class="tooltip" tabindex="0">?
+      <span class="tooltiptext">If set, start date overrides the period filter start.</span>
+    </span>
 
-  <div>
-    <input type="checkbox" id="toggleMeetingNumbers" />
-    <label for="toggleMeetingNumbers">Show Meeting Numbers and Points per Meeting</label>
-  </div>
+    <label for="endDate" class="tooltip">End Date:
+      <span class="tooltiptext">Pick the end date for filtering points.</span>
+    </label>
+    <input type="date" id="endDate" aria-describedby="endHelp" />
 
-  <div>
-    <button id="showLeaderboard">Show Leaderboard</button>
-    <button id="showChart">Show Top 5 Chart</button>
-  </div>
+    <span id="endHelp" class="tooltip" tabindex="0">?
+      <span class="tooltiptext">If set, end date overrides the period filter end.</span>
+    </span>
 
-  <hr />
+    <label class="checkbox-wrapper" for="toggleMeetingNumbers" title="Show or hide meeting number & points per meeting">
+      <input type="checkbox" id="toggleMeetingNumbers" />
+      Show Meeting Numbers
+    </label>
 
-  <div id="memberView" class="hidden">
+  </section>
+
+  <section style="margin-bottom: 20px;">
+    <button id="showLeaderboard" aria-controls="leaderboardView">Show Leaderboard</button>
+    <button id="showChart" aria-controls="chartView">Show Top 5 Chart</button>
+    <button id="clearFilters" title="Reset all filters and selections" aria-label="Clear filters and member selection">Clear Filters</button>
+  </section>
+
+  <section id="loadingIndicator" class="loading-spinner hidden" aria-live="polite" aria-label="Loading data"></section>
+
+  <section id="errorMessage" class="hidden" style="color: red; font-weight: 600; margin-bottom: 20px;" role="alert"></section>
+
+  <section id="memberView" class="member-section hidden" aria-live="polite">
     <h2>Member Details</h2>
-    <div id="memberData"></div>
-  </div>
+    <div id="memberData">Select a member to view details.</div>
+  </section>
 
-  <div id="leaderboardView" class="">
+  <section id="leaderboardView" class="member-section" aria-live="polite">
     <h2>Leaderboard</h2>
-    <div id="leaderboard">Loading...</div>
-  </div>
+    <div id="leaderboard">Loading leaderboard...</div>
+  </section>
 
-  <div id="chartView" class="hidden">
+  <section id="chartView" class="member-section hidden" aria-live="polite">
     <h2>Top 5 Members Chart</h2>
-    <canvas id="topChart" width="600" height="400"></canvas>
-  </div>
+    <canvas id="topChart" width="600" height="400" aria-label="Top 5 members points bar chart"></canvas>
+  </section>
+</main>
 
-  <!-- Include Tabletop.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.4/tabletop.min.js"></script>
+<footer>
+  &copy; 2025 Toastmasters Club. Dashboard by Your Name.
+</footer>
 
-  <!-- Include Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- External libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.4/tabletop.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- Your script.js content goes here -->
-  <script src="script.js"></script>
+<!-- Your custom script.js -->
+<script src="script.js"></script>
 
 </body>
 </html>
