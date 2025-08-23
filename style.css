@@ -2,23 +2,37 @@ body {
   font-family: 'Inter', sans-serif;
   background: #F4F4F4;
   margin: 0;
-  padding: 20px;
+  padding: 0;
   color: #333;
+}
+
+.tm-header {
+  display: flex;
+  align-items: center;
+  background-color: #004165; /* Toastmasters Loyal Blue */
+  padding: 15px 30px;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.tm-logo {
+  height: 50px;
+  margin-right: 15px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.8em;
+  color: #fff;
 }
 
 .container {
   max-width: 1000px;
-  margin: auto;
+  margin: 30px auto;
   background: white;
   padding: 30px;
   border-radius: 10px;
   box-shadow: 0 3px 12px rgba(0,0,0,0.1);
-}
-
-h1 {
-  text-align: center;
-  color: #872434; /* Toastmasters Burgundy */
-  margin-bottom: 25px;
 }
 
 .filters {
@@ -52,14 +66,14 @@ h1 {
 
 button {
   cursor: pointer;
-  background-color: #00587C; /* Toastmasters Blue */
+  background-color: #00587C;
   color: white;
   border: none;
   transition: background-color 0.2s ease;
 }
 
 button:hover {
-  background-color: #004666; /* Darker Blue */
+  background-color: #004666;
 }
 
 #error {
@@ -84,7 +98,7 @@ th, td {
 }
 
 th {
-  background-color: #D9EAF7; /* Soft Toastmasters Blue */
+  background-color: #D9EAF7;
   color: #00587C;
   font-weight: 600;
 }
