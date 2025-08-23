@@ -1,167 +1,99 @@
+<!-- members.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Toastmasters Points Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600&family=Source+Sans+Pro&display=swap" rel="stylesheet">
   <style>
-    /* Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600&family=Source+Sans+Pro&display=swap');
-    body {
-      font-family: 'Source Sans Pro', sans-serif;
-      margin: 0; padding: 0;
-      background: #f5f5f5; color: #333;
-    }
-    header {
-      background: #004165; /* Loyal Blue */
-      color: white;
-      padding: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    header img {
-      height: 50px;
-    }
-    header h1 {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 1.8rem;
-      margin: 0;
-    }
-    .controls {
-      padding: 1rem;
-      text-align: center;
-      background: white;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .controls select {
-      padding: .5rem;
-      font-size: 1rem;
-      min-width: 200px;
-    }
-    #loading {
-      text-align: center;
-      padding: 1rem;
-      font-style: italic;
-      color: #666;
-    }
-    #details {
-      max-width: 1000px;
-      margin: 1rem auto;
-      padding: 1rem;
-    }
-    .category-header {
-      background: #772432; /* True Maroon */
-      color: white;
-      padding: .5rem 1rem;
-      margin-top: 1.5rem;
-      font-family: 'Montserrat', sans-serif;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-    }
-    th {
-      background: #A9B2B1; /* Cool Gray */
-      padding: .5rem;
-      text-align: left;
-    }
-    td {
-      padding: .5rem;
-      border-bottom: 1px solid #ddd;
-    }
-    footer {
-      background: #004165;
-      color: white;
-      text-align: center;
-      padding: .75rem;
-      margin-top: 2rem;
-    }
+    body { font-family: 'Source Sans Pro', sans-serif; margin: 0; background: #f5f5f5; color: #333; }
+    header { background: #004165; color: white; display: flex; align-items: center; padding: 1rem; gap: 1rem; }
+    header h1 { font-family: 'Montserrat', sans-serif; margin: 0; font-size: 1.8rem; }
+    .controls { padding: 1rem; background: white; display: flex; align-items: center; justify-content: center; gap: 1rem; }
+    select, input { padding: .5rem; font-size: 1rem; }
+    #loading { text-align: center; padding: 1rem; font-style: italic; color: #666; }
+    #details { max-width: 960px; margin: 1rem auto; padding: 0 1rem; }
+    .category-header { background: #772432; color: white; padding: .5rem; margin-top: 1.5rem; font-family: 'Montserrat', sans-serif; }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    th { background: #A9B2B1; padding: .5rem; text-align: left; }
+    td { padding: .5rem; border-bottom: 1px solid #ddd; }
+    footer { background: #004165; color: white; text-align: center; padding: .75rem; margin-top: 2rem; font-size: .9rem;}
   </style>
 </head>
 <body>
   <header>
-    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Toastmasters_International_logo.svg/2560px-Toastmasters_International_logo.svg.png" alt="Toastmasters Logo">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/f/f3/Toastmasters_International_logo.svg" alt="Toastmasters Logo" height="50">
     <h1>Toastmasters Points Dashboard</h1>
   </header>
 
   <div class="controls">
     <label for="memberSelect">Select Member:</label>
     <select id="memberSelect" disabled>
-      <option>Loading members...</option>
+      <option>Loading...</option>
     </select>
   </div>
 
   <div id="loading">Loading data...</div>
   <div id="details"></div>
-
   <footer>Where Leaders Are Made</footer>
 
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
     const sheetUrls = {
-      "Attendance": '...csv URL...',
-      "Early Attendance": '...csv URL...',
-      "Role Taking": '...csv URL...',
-      "Last Minute Roles": '...csv URL...',
-      "Speeches": '...csv URL...',
-      "Evaluations": '...csv URL...',
-      "Level Completions": '...csv URL...',
-      "Awards": '...csv URL...',
-      "ExCom & Sub.": '...csv URL...',
-      "Table Topics": '...csv URL...',
-      "Summary": '...csv URL...',
-      "Total": '...csv URL...'
+      "Attendance": "...csv URL...",
+      "Early Attendance": "...",
+      "Role Taking": "...",
+      "Last Minute Roles": "...",
+      "Speeches": "...",
+      "Evaluations": "...",
+      "Level Completions": "...",
+      "Awards": "...",
+      "ExCom & Sub.": "...",
+      "Table Topics": "...",
+      "Summary": "...",
+      "Total": "..."
     };
     const allData = {};
-    let members = [];
 
-    async function fetchAndParse(name, url) {
-      const res = await fetch(url);
+    async function fetchSheet(key) {
+      const res = await fetch(sheetUrls[key]);
       const text = await res.text();
       return Papa.parse(text, { header: true }).data;
     }
 
     async function init() {
-      const keys = Object.keys(sheetUrls);
-      for (const k of keys) {
+      const sel = document.getElementById("memberSelect");
+      for (const key of Object.keys(sheetUrls)) {
         try {
-          allData[k] = await fetchAndParse(k, sheetUrls[k]);
+          allData[key] = await fetchSheet(key);
         } catch (e) {
-          console.error(`Error loading ${k}`, e);
+          console.error("Error loading", key, e);
         }
       }
-      // Populate member list from Summary's "Name" column starting row 3
-      const sum = allData['Summary'] || [];
-      members = sum.slice(2).map(r => r.Name).filter(n => n).sort();
-      const sel = document.getElementById('memberSelect');
-      sel.innerHTML = members.map(n => `<option value="${n}">${n}</option>`).join('');
+      const summary = allData["Summary"] || [];
+      const members = summary.slice(2).map(r => r.Name).filter(n => n).sort();
+      sel.innerHTML = '<option value="">-- Select Member --</option>' + members.map(n => `<option>${n}</option>`).join('');
       sel.disabled = false;
-      document.getElementById('loading').style.display = 'none';
+      document.getElementById("loading").style.display = 'none';
       sel.addEventListener('change', () => renderDetails(sel.value));
     }
 
     function renderDetails(name) {
-      const d = document.getElementById('details');
-      d.innerHTML = `<h2>${name}</h2>`;
-      Object.entries(allData).forEach(([sheet, rows]) => {
-        const memberRow = rows.find(r => r.Name === name);
-        if (!memberRow) return;
-        d.innerHTML += `<div class="category-header">${sheet}</div><table><tr>`;
-        Object.entries(memberRow).forEach(([col,val]) => {
-          if (val && col && col !== 'Name') {
-            d.innerHTML += `<th>${col}</th>`;
-          }
+      const d = document.getElementById("details");
+      d.innerHTML = name ? `<h2>${name}</h2>` : '';
+      for (const [category, rows] of Object.entries(allData)) {
+        const row = rows.find(r => r.Name === name);
+        if (!row) continue;
+        d.innerHTML += `<div class="category-header">${category}</div><table><tr>`;
+        Object.entries(row).forEach(([col, val]) => {
+          if (val && col !== 'Name') d.innerHTML += `<th>${col}</th>`;
         });
         d.innerHTML += '</tr><tr>';
-        Object.entries(memberRow).forEach(([col,val]) => {
-          if (val && col && col !== 'Name') {
-            d.innerHTML += `<td>${val}</td>`;
-          }
+        Object.entries(row).forEach(([col, val]) => {
+          if (val && col !== 'Name') d.innerHTML += `<td>${val}</td>`;
         });
         d.innerHTML += '</tr></table>`;
-      });
+      }
     }
 
     window.addEventListener('DOMContentLoaded', init);
