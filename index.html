@@ -3,67 +3,54 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Toastmasters Points Dashboard</title>
-
-  <!-- Toastmasters brand CSS -->
+  <title>Toastmasters Club - Points Dashboard</title>
   <link rel="stylesheet" href="style.css" />
-
-  <!-- External libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="script.js" defer></script>
 </head>
 <body>
   <header>
-    <img src="https://www.toastmasters.org/themes/custom/toastmasters_bootstrap/logo.svg" alt="Toastmasters Logo" />
-    <h1>Toastmasters Points Dashboard</h1>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Toastmasters_International_logo.svg/2560px-Toastmasters_International_logo.svg.png" alt="Toastmasters Logo" class="logo" />
+    <h1>Toastmasters Club Points Dashboard</h1>
   </header>
 
   <main>
-    <div class="controls">
+    <section class="controls">
       <label for="memberSelect">Select Member:</label>
-      <select id="memberSelect" aria-label="Select Member">
-        <option value="">-- Choose a Member --</option>
+      <select id="memberSelect">
+        <option value="" disabled selected>-- Choose Member --</option>
       </select>
 
-      <label for="periodStart">Start Date:</label>
-      <input type="date" id="periodStart" aria-label="Start Date" />
+      <label for="startDate">From:</label>
+      <input type="date" id="startDate" />
 
-      <label for="periodEnd">End Date:</label>
-      <input type="date" id="periodEnd" aria-label="End Date" />
+      <label for="endDate">To:</label>
+      <input type="date" id="endDate" />
 
-      <label for="toggleMeetingNum">Show Meeting Numbers
-        <input type="checkbox" id="toggleMeetingNum" checked />
+      <label class="toggle-label">
+        <input type="checkbox" id="toggleMeetingNumbers" />
+        Show Meeting Numbers
       </label>
-
-      <button id="refreshBtn" aria-label="Refresh Data">Refresh</button>
-      <button id="showLeaderboardBtn" aria-label="Show Leaderboard">Show Leaderboard</button>
-    </div>
-
-    <div id="memberData" aria-live="polite">
-      <!-- Member detailed points will appear here -->
-    </div>
-
-    <section id="leaderboardView" aria-live="polite" aria-label="Leaderboard">
-      <h2>Leaderboard</h2>
-      <table role="table" aria-describedby="leaderboard-desc">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Member</th>
-            <th>Total Points</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Leaderboard data will be injected here -->
-        </tbody>
-      </table>
     </section>
 
-    <section id="top5Chart" aria-label="Top 5 Members Chart">
-      <canvas id="top5BarChart" role="img" aria-label="Bar chart showing top 5 members"></canvas>
+    <section id="memberDetailsSection">
+      <h2>Member Detailed Points</h2>
+      <div id="memberDetails">
+        <p>Please select a member and date range above.</p>
+      </div>
+    </section>
+
+    <section id="leaderboardSection">
+      <h2>Leaderboard</h2>
+      <div id="leaderboard"></div>
+      <canvas id="top5Chart" width="600" height="300"></canvas>
     </section>
   </main>
 
-  <script src="script.js"></script>
+  <footer>
+    <p>Powered by Toastmasters Club Dashboard</p>
+  </footer>
 </body>
 </html>
