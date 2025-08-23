@@ -9,11 +9,14 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>🌟 Toastmasters Points Tracker</h1>
+  <header class="tm-header">
+    <img src="logo.png" alt="Toastmasters Logo" class="tm-logo">
+    <h1>Toastmasters Club Points Tracker</h1>
+  </header>
 
+  <div class="container">
     <div class="filters">
-      <label>Choose Member:</label>
+      <label>Member:</label>
       <select id="memberSelect">
         <option value="">-- Select Member --</option>
       </select>
@@ -33,7 +36,9 @@
         <input type="date" id="endDate">
       </div>
 
-      <label><input type="checkbox" id="toggleMeetingNumbers"> Show Meeting Numbers</label>
+      <label>
+        <input type="checkbox" id="toggleMeetingNumbers"> Show Meeting Numbers
+      </label>
 
       <button id="showLeaderboardBtn">🏆 Leaderboard</button>
       <button id="showChartBtn">📊 Top 5 Chart</button>
@@ -43,7 +48,7 @@
     <div id="error" class="error"></div>
     <div id="memberData"></div>
     <div id="leaderboardView"></div>
-    <canvas id="top5Chart" style="max-width: 600px; margin: 40px auto; display: none;"></canvas>
+    <canvas id="top5Chart" style="display: none;"></canvas>
   </div>
 
   <script src="script.js"></script>
