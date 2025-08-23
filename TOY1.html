@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toastmasters Club - Points Dashboard</title>
+
+  <!-- Toastmasters brand fonts & colors -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
+
+  <style>
+    /* Toastmasters color palette & typography */
+    :root {
+      --tm-dark-blue: #003366;
+      --tm-orange: #f15a24;
+      --tm-light-gray: #f7f7f7;
+      --tm-text-color: #333;
+    }
+
+    body {
+      font-family: 'Open Sans', Arial, sans-serif;
+      max-width: 960px;
+      margin: 20px auto;
+      background: var(--tm-light-gray);
+      color: var(--tm-text-color);
+      line-height: 1.5;
+      padding: 0 15px 40px;
+    }
+
+    header {
+      text-align: center;
+      border-bottom: 3px solid var(--tm-orange);
+      margin-bottom: 30px;
+      padding-bottom: 10px;
+    }
+
+    .logo {
+      max-height: 70px;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-weight: 700;
+      color: var(--tm-dark-blue);
+      margin: 0 0 10px;
+    }
+
+    h2 {
+      border-bottom: 2px solid var(--tm-orange);
+      padding-bottom: 5px;
+      color: var(--tm-dark-blue);
+      margin-top: 40px;
+      margin-bottom: 15px;
+    }
+
+    label {
+      font-weight: 600;
+      margin-right: 8px;
+    }
+
+    select, input[type="date"], input[type="text"] {
+      padding: 7px 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      margin-right: 15px;
+      margin-bottom: 15px;
+      min-width: 180px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    button {
+      cursor: pointer;
+      background-color: var(--tm-orange);
+      border: none;
+      color: white;
+      padding: 8px 14px;
+      font-weight: 600;
+      border-radius: 4px;
+      margin-left: 8px;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #d14c1f;
+    }
+
+    .toggle-label {
+      font-weight: 600;
+      user-select: none;
+      margin-left: 10px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .toggle-label input {
+      margin-right: 6px;
+      cursor: pointer;
+    }
+
+    #memberDetails {
+      background: white;
+      padding: 15px;
+      border-radius: 5px;
+      box-shadow: 0 0 8px rgb(0 0 0 / 0.1);
+      min-height: 150px;
+      font-size: 14px;
+    }
+
+    section .table-controls {
+      margin: 10px 0 5px;
+    }
+
+    .filter-input {
+      width: 250px;
+      max-width: 100%;
+      padding: 6px 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      margin-right: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--tm-orange);
+      color: white;
+      user-select: none;
+    }
+
+    tr:nth-child(even) {
+      background-color: #fafafa;
+    }
+
+    tr:hover {
+      background-color: #ffe5cc;
+    }
+
+    .no-data {
+      font-style: italic;
+      color: #777;
+      margin-top: 15px;
+    }
+
+    footer {
+      margin-top: 60px;
+      border-top: 1px solid #ccc;
+      padding-top: 12px;
+      text-align: center;
+      font-size: 13px;
+      color: #666;
+    }
+
+    #leaderboard {
+      background: white;
+      padding: 15px;
+      border-radius: 5px;
+      box-shadow: 0 0 8px rgb(0 0 0 / 0.1);
+      font-size: 14px;
+    }
+
+    @media (max-width: 600px) {
+      select, input[type="date"], .filter-input {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 10px;
+      }
+      button {
+        width: 100%;
+        margin-left: 0;
+        margin-bottom: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <img
+      src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Toastmasters_International_logo.svg/2560px-Toastmasters_International_logo.svg.png"
+      alt="Toastmasters Logo"
+      class="logo"
+      loading="lazy"
+    />
+    <h1>Toastmasters Club Points Dashboard</h1>
+  </header>
+
+  <main>
+    <section class="controls" aria-label="Member and date filters">
+      <label for="memberSelect">Select Member:</label>
+      <select id="memberSelect" aria-describedby="memberHelp" aria-required="true">
+        <option value="" disabled selected>-- Choose Member --</option>
+      </select>
+
+      <label for="startDate">From:</label>
+      <input type="date" id="startDate" aria-label="Start date" />
+
+      <label for="endDate">To:</label>
+      <input type="date" id="endDate" aria-label="End date" />
+
+      <label class="toggle-label" for="toggleMeetingNumbers">
+        <input type="checkbox" id="toggleMeetingNumbers" />
+        Show Meeting Numbers
+      </label>
+    </section>
+
+    <section id="memberDetailsSection" aria-live="polite" aria-atomic="true">
+      <h2>Member Detailed Points</h2>
+      <div id="memberDetails">
+        <p>Please select a member and date range above.</p>
+      </div>
+    </section>
+
+    <section id="leaderboardSection">
+      <h2>Leaderboard</h2>
+      <div id="leaderboard">Loading leaderboard...</div>
+      <canvas id="top5Chart" width="600" height="300" aria-label="Top 5 members chart" role="img"></canvas>
+    </section>
+  </main>
+
+  <footer>
+    <p>Powered by Toastmasters Club Dashboard</p>
+  </footer>
+
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    // URLs for CSV data
+    const csvUrls = {
+      roleTaking:        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=23380471&single=true&output=csv",
+      speeches:          "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=170161438&single=true&output=csv",
+      evaluations:       "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=335593996&single=true&output=csv",
+      levelCompletions:  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1039416299&single=true&output=csv",
+    };
+
+    const allData = {};
+    const memberSet = new Set();
+
+    // Utilities
+    function escapeHtml(text) {
+      if (!text) return "";
+      return text.replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      })[m]);
+    }
+
+    function capitalizeWords(str) {
+      return str.replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function parseDate(str) {
+      if (!str) return null;
+      const d = new Date(str);
+      return isNaN(d) ? null : d;
+    }
+
+    function formatDate(date) {
+      if (!date) return "";
+      const yyyy = date.getFullYear();
+      let mm = date.getMonth() + 1;
+      let dd = date.getDate();
+      if (mm < 10) mm = "0" + mm;
+      if (dd < 10) dd = "0" + dd;
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Generates table HTML from array of objects
+    function generateTableHTML(rows, showMeetingNumbers) {
+      if (!rows.length) return '<p class="no-data">No records found.</p>';
+
+      // Collect columns dynamically; optionally exclude meeting number if toggle off
+      const excludeCols = showMeetingNumbers ? [] : ['Meeting Number', 'MeetingNumber', 'Meeting No', 'Meeting No.'];
+      let columns = Object.keys(rows[0]).filter(c => !excludeCols.some(ex => c.toLowerCase().includes(ex.toLowerCase())));
+
+      let html = "<table><thead><tr>";
+      for (const col of columns) {
+        html += `<th>${escapeHtml(capitalizeWords(col.replace(/_/g, " ")))}</th>`;
+      }
+      html += "</tr></thead><tbody>";
+
+      for (const row of rows) {
+        html += "<tr>";
+        for (const col of columns) {
+          html += `<td>${escapeHtml(row[col] || "")}</td>`;
+        }
+        html += "</tr>";
+      }
+      html += "</tbody></table>";
+      return html;
+    }
+
+    // Export filtered table data to CSV
+    function exportFilteredTableToCSV(category, memberName) {
+      const container = document.querySelector(`.table-container[data-category="${category}"]`);
+      if (!container) return;
+
+      const rows = Array.from(container.querySelectorAll("tbody tr"))
+        .filter(tr => tr.style.display !== "none");
+
+      if (!rows.length) {
+        alert("No data to export.");
+        return;
+      }
+
+      const headers = Array.from(container.querySelectorAll("thead th")).map(th => th.textContent.trim());
+
+      const csvRows = [];
+      csvRows.push(headers.join(","));
+      for (const tr of rows) {
+        const cells = Array.from(tr.querySelectorAll("td"));
+        const rowValues = cells.map(td => `"${td.textContent.replace(/"/g, '""')}"`);
+        csvRows.push(rowValues.join(","));
+      }
+
+      const csvContent = csvRows.join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${memberName}_${category}_data.csv`;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Setup filtering & export buttons for each category table
+    function setupFilteringAndExport(memberName, showMeetingNumbers) {
+      const filters = document.querySelectorAll(".filter-input");
+      filters.forEach(input => {
+        input.oninput = e => {
+          const category = e.target.dataset.category;
+          const filterVal = e.target.value.toLowerCase();
+          const tableContainer = document.querySelector(`.table-container[data-category="${category}"]`);
+          if (!tableContainer) return;
+
+          const rows = tableContainer.querySelectorAll("tbody tr");
+          rows.forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+            row.style.display = rowText.includes(filterVal) ? "" : "none";
+          });
+        };
+      });
+
+      const clearBtns = document.querySelectorAll(".clear-filter");
+      clearBtns.forEach(btn => {
+        btn.onclick = e => {
+          const category = e.target.dataset.category;
+          const input = document.querySelector(`.filter-input[data-category="${category}"]`);
+          if (input) {
+            input.value = "";
+            input.dispatchEvent(new Event('input'));
+          }
+        };
+      });
+
+      const exportBtns = document.querySelectorAll(".export-btn");
+      exportBtns.forEach(btn => {
+        btn.onclick = e => {
+          const category = e.target.dataset.category;
+          exportFilteredTableToCSV(category, memberName);
+        };
+      });
+    }
+
+    // Display member details grouped by categories, considering toggle for meeting numbers
+    function displayMemberDetails(name, startDate, endDate, showMeetingNumbers) {
+      const detailsDiv = document.getElementById("memberDetails");
+      detailsDiv.innerHTML = `<h3>Details for ${escapeHtml(name)}</h3>`;
+      let foundAny = false;
+
+      const fromDate = startDate ? new Date(startDate) : null;
+      const toDate = endDate ? new Date(endDate) : null;
+
+      for (const [category, data] of Object.entries(allData)) {
+        // Filter rows for this member and date range
+        const filteredRows = data.filter(row => {
+          if (!row["Name"]) return false;
+          if (row["Name"].trim() !== name) return false;
+
+          // Date fields common names
+          let dateStr = row["Date"] || row["Meeting Date"] || row["MeetingDate"] || row["date"];
+          let rowDate = parseDate(dateStr);
+          if (fromDate && (!rowDate || rowDate < fromDate)) return false;
+          if (toDate && (!rowDate || rowDate > toDate)) return false;
+
+          return true;
+        });
+
+        if (filteredRows.length > 0) {
+          foundAny = true;
+          detailsDiv.innerHTML += `
+            <section id="section-${category}">
+              <h4>${capitalizeWords(category.replace(/_/g, " "))}</h4>
+              <div class="table-controls">
+                <input
+                  type="text"
+                  placeholder="Filter ${capitalizeWords(category)}..."
+                  class="filter-input"
+                  data-category="${category}"
+                  aria-label="Filter ${capitalizeWords(category)} table"
+                />
+                <button class="clear-filter" data-category="${category}" aria-label="Clear filter for ${capitalizeWords(category)}">Clear Filter</button>
+                <button class="export-btn" data-category="${category}" aria-label="Export ${capitalizeWords(category)} table to CSV">Export CSV</button>
+              </div>
+              <div class="table-container" data-category="${category}">
+                ${generateTableHTML(filteredRows, showMeetingNumbers)}
+              </div>
+            </section>
+          `;
+        }
+      }
+
+      if (!foundAny) {
+        detailsDiv.innerHTML += `<p class="no-data">No records found for this member in the selected date range.</p>`;
+      }
+
+      setupFilteringAndExport(name, showMeetingNumbers);
+    }
+
+    // Populate members select dropdown
+    function populateMemberSelect() {
+      const select = document.getElementById("memberSelect");
+      select.innerHTML = `<option value="" disabled selected>-- Choose Member --</option>`;
+      const members = Array.from(memberSet).sort((a, b) => a.localeCompare(b));
+      for (const member of members) {
+        const option = document.createElement("option");
+        option.value = member;
+        option.textContent = member;
+        select.appendChild(option);
+      }
+    }
+
+    // Aggregate total points per member across all categories
+    // Assumes each row has a numeric column "Points" or "points" to sum
+    function calculateTotalPoints() {
+      const totals = {};
+      for (const data of Object.values(allData)) {
+        for (const row of data) {
+          if (!row["Name"]) continue;
+          const name = row["Name"].trim();
+          // Try different common points column names:
+          const pointsStr = row["Points"] ?? row["points"] ?? row["Total Points"] ?? row["TotalPoints"] ?? row["Points Earned"];
+          const points = pointsStr ? Number(pointsStr) : 0;
+          if (!totals[name]) totals[name] = 0;
+          if (!isNaN(points)) totals[name] += points;
+        }
+      }
+      return totals;
+    }
+
+    // Render leaderboard and chart top 5
+    function renderLeaderboard() {
+      const leaderboardDiv = document.getElementById("leaderboard");
+      const chartCanvas = document.getElementById("top5Chart");
+      const totals = calculateTotalPoints();
+
+      // Sort descending
+      const sortedMembers = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+
+      if (sortedMembers.length === 0) {
+        leaderboardDiv.innerHTML = "<p class='no-data'>No leaderboard data available.</p>";
+        chartCanvas.style.display = "none";
+        return;
+      }
+
+      leaderboardDiv.innerHTML = `<ol>
+        ${sortedMembers.map(([name, pts]) => `<li><strong>${escapeHtml(name)}</strong>: ${pts.toFixed(2)}</li>`).join("")}
+      </ol>`;
+
+      // Show top 5 in chart
+      const top5 = sortedMembers.slice(0, 5);
+      chartCanvas.style.display = "block";
+
+      // Destroy old chart if any
+      if (window.top5ChartInstance) {
+        window.top5ChartInstance.destroy();
+      }
+
+      window.top5ChartInstance = new Chart(chartCanvas.getContext("2d"), {
+        type: "bar",
+        data: {
+          labels: top5.map(x => x[0]),
+          datasets: [{
+            label: "Total Points",
+            data: top5.map(x => x[1]),
+            backgroundColor: "rgba(241, 90, 36, 0.7)",
+            borderColor: "rgba(241, 90, 36, 1)",
+            borderWidth: 1,
+            hoverBackgroundColor: "rgba(241, 90, 36, 0.9)",
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Points",
+              },
+              ticks: {
+                precision: 0
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: "Members",
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Load all CSV data asynchronously
+    async function loadAllCSVData() {
+      const promises = [];
+
+      for (const [key, url] of Object.entries(csvUrls)) {
+        promises.push(
+          fetch(url)
+            .then(res => {
+              if (!res.ok) throw new Error(`Failed to load ${key}`);
+              return res.text();
+            })
+            .then(text => {
+              const parsed = Papa.parse(text.trim(), { header: true, skipEmptyLines: true });
+              allData[key] = parsed.data;
+
+              // Add unique members
+              for (const row of parsed.data) {
+                if (row["Name"] && row["Name"].trim() !== "") {
+                  memberSet.add(row["Name"].trim());
+                }
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              allData[key] = [];
+            })
+        );
+      }
+
+      await Promise.all(promises);
+    }
+
+    // Event handlers and main logic
+    async function main() {
+      await loadAllCSVData();
+      populateMemberSelect();
+      renderLeaderboard();
+
+      const memberSelect = document.getElementById("memberSelect");
+      const startDateInput = document.getElementById("startDate");
+      const endDateInput = document.getElementById("endDate");
+      const toggleMeetingNumbers = document.getElementById("toggleMeetingNumbers");
+      const memberDetailsDiv = document.getElementById("memberDetails");
+
+      function refreshMemberDetails() {
+        const selectedMember = memberSelect.value;
+        if (!selectedMember) {
+          memberDetailsDiv.innerHTML = `<p>Please select a member and date range above.</p>`;
+          return;
+        }
+
+        const startDate = startDateInput.value || null;
+        const endDate = endDateInput.value || null;
+        const showMeetingNumbers = toggleMeetingNumbers.checked;
+
+        displayMemberDetails(selectedMember, startDate, endDate, showMeetingNumbers);
+      }
+
+      memberSelect.addEventListener("change", refreshMemberDetails);
+      startDateInput.addEventListener("change", refreshMemberDetails);
+      endDateInput.addEventListener("change", refreshMemberDetails);
+      toggleMeetingNumbers.addEventListener("change", refreshMemberDetails);
+    }
+
+    // Kickoff
+    main();
+  </script>
+
+</body>
+</html>
