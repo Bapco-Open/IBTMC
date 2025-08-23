@@ -1,22 +1,24 @@
 body {
   font-family: 'Inter', sans-serif;
-  background: #f9f9fb;
+  background: #F4F4F4;
   margin: 0;
   padding: 20px;
+  color: #333;
 }
 
 .container {
-  max-width: 960px;
+  max-width: 1000px;
   margin: auto;
-  background: #fff;
+  background: white;
   padding: 30px;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.1);
 }
 
 h1 {
   text-align: center;
-  color: #333;
+  color: #872434; /* Toastmasters Burgundy */
+  margin-bottom: 25px;
 }
 
 .filters {
@@ -30,12 +32,13 @@ h1 {
 .filters label {
   font-weight: 600;
   margin-right: 5px;
+  color: #00587C;
 }
 
 .filters select,
 .filters input[type="date"],
 .filters button {
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 5px;
   border: 1px solid #ccc;
   font-size: 14px;
@@ -49,36 +52,65 @@ h1 {
 
 button {
   cursor: pointer;
-  background-color: #3b82f6;
+  background-color: #00587C; /* Toastmasters Blue */
   color: white;
   border: none;
+  transition: background-color 0.2s ease;
 }
 
 button:hover {
-  background-color: #2563eb;
+  background-color: #004666; /* Darker Blue */
 }
 
 #error {
   color: red;
   margin-bottom: 10px;
+  font-weight: bold;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 25px;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 th, td {
-  padding: 10px;
+  padding: 10px 12px;
   border: 1px solid #ddd;
   text-align: left;
 }
 
 th {
-  background-color: #f3f4f6;
+  background-color: #D9EAF7; /* Soft Toastmasters Blue */
+  color: #00587C;
+  font-weight: 600;
+}
+
+td {
+  background-color: #fff;
 }
 
 #top5Chart {
   display: block;
+  margin: 40px auto;
+  max-width: 600px;
+}
+
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .date-range {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  table, thead, tbody, th, td, tr {
+    font-size: 14px;
+  }
 }
