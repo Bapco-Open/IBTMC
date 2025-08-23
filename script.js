@@ -1,6 +1,6 @@
 const publicSpreadsheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pubhtml';
 
-// Define the sheets for summary and details
+// Sheets you have
 const summarySheets = ["Summary", "Total"];
 const detailSheets = ["Attendance", "Early Attendance", "Role Taking", "Last Minute Roles", "Speeches", "Evaluations", "Level Completions", "Awards", "ExCom & Sub.", "Contests", "Other", "External", "Table Topics", "Last Minute Speeches/Evaluations"];
 
@@ -10,10 +10,12 @@ window.addEventListener('DOMContentLoaded', () => {
   Tabletop.init({
     key: publicSpreadsheetUrl,
     callback: onDataLoad,
-    simpleSheet: false
+    simpleSheet: false,
+    parseNumbers: true,
+    wanted: [...summarySheets, ...detailSheets]
   });
 
-  // Event listeners for controls
+  // Event listeners
   document.getElementById("periodSelect").addEventListener("change", refreshView);
   document.getElementById("startDate").addEventListener("change", refreshView);
   document.getElementById("endDate").addEventListener("change", refreshView);
@@ -29,22 +31,30 @@ function onDataLoad(data) {
   renderLeaderboard();
 }
 
-// Populate member dropdown from all sheets
+// Populate member dropdown filtering out "Meeting Number" or empty rows
 function populateMemberDropdown() {
   const sel = document.getElementById("memberSelect");
   const names = new Set();
 
-  [...summarySheets, ...detailSheets].forEach(sheet => {
-    if (allData[sheet] && allData[sheet].elements) {
-      allData[sheet].elements.forEach(r => {
-        if (r.Name) names.add(r.Name.trim());
-      });
-    }
+  // Summary sheet with headers, straightforward
+  if (allData["Summary"] && allData["Summary"].elements) {
+    allData["Summary"].elements.forEach(r => {
+      if (r.Name) names.add(r.Name.trim());
+    });
+  }
+
+  // For other sheets, skip rows where name cell is empty or "Meeting Number"
+  detailSheets.forEach(sheet => {
+    if (!allData[sheet] || !allData[sheet].elements) return;
+    allData[sheet].elements.forEach(row => {
+      const nameVal = (row.Name || "").trim();
+      if (nameVal && !nameVal.toLowerCase().includes('meeting') && nameVal !== '') {
+        names.add(nameVal);
+      }
+    });
   });
 
-  // Clear existing options except placeholder
   sel.innerHTML = '<option value="">-- Choose --</option>';
-
   Array.from(names).sort().forEach(name => {
     const option = document.createElement("option");
     option.value = name;
@@ -78,15 +88,14 @@ function toggleView(view) {
   });
 }
 
-// Helper to parse date strings like '12-Jul-25' to Date objects
+// Parse date string like '12-Jul-25' to Date object
 function parseDateStr(dateStr) {
   try {
-    // Parse with explicit format
     const parts = dateStr.split('-');
     if(parts.length !== 3) return null;
     const day = parseInt(parts[0], 10);
     const monthStr = parts[1];
-    const year = 2000 + parseInt(parts[2], 10); // Assuming 20xx
+    const year = 2000 + parseInt(parts[2], 10);
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const month = months.indexOf(monthStr);
     if (month === -1) return null;
@@ -96,7 +105,7 @@ function parseDateStr(dateStr) {
   }
 }
 
-// Get the selected period (either from custom date range or dropdown)
+// Get selected period for filtering points
 function getSelectedPeriod() {
   const startVal = document.getElementById("startDate").value;
   const endVal = document.getElementById("endDate").value;
@@ -125,16 +134,19 @@ function getSelectedPeriod() {
   return null; // all time
 }
 
-// Filter points in a row according to the period, gracefully skipping badly formatted columns
+// Get filtered points from a row, skipping non-date columns and applying period filter
 function getFilteredPoints(row, period) {
   const points = [];
   for (const key in row) {
-    if (!key.match(/^\\d{1,2}-[A-Za-z]{3}-\\d{2}$/)) continue;
+    // Skip "Name" and "Total" columns
+    if (key === "Name" || key === "Total") continue;
+
+    // Match date columns only (e.g., "12-Jul-25")
+    if (!key.match(/^\d{1,2}-[A-Za-z]{3}-\d{2}$/)) continue;
+
     const date = parseDateStr(key);
-    if (!date) {
-      console.warn(`Skipping unrecognized date format column: ${key}`);
-      continue;
-    }
+    if (!date) continue;
+
     if (period && (date < period.start || date > period.end)) continue;
 
     const val = parseInt(row[key]);
@@ -143,6 +155,7 @@ function getFilteredPoints(row, period) {
   return points;
 }
 
+// Render the detailed member data view
 function renderMemberData(name) {
   toggleView('member');
   const container = document.getElementById("memberData");
@@ -154,38 +167,71 @@ function renderMemberData(name) {
   // Render detail sheets
   detailSheets.forEach(sheet => {
     if (!allData[sheet]) return;
-    const rows = allData[sheet].elements.filter(r => r.Name?.trim() === name);
+    // Find rows for the member, ignoring non-member rows
+    const rows = allData[sheet].elements.filter(r => {
+      const n = (r.Name || "").trim();
+      return n === name && !n.toLowerCase().includes('meeting') && n !== '';
+    });
     if (rows.length) {
       const section = document.createElement("div");
       section.className = "member-section";
-      section.innerHTML = `<h3>${sheet}</h3><ul>` +
-        rows.map(r => {
-          const totalPoints = getFilteredPoints(r, period).reduce((a, b) => a + b, 0);
-          return `<li>Total points: ${totalPoints}</li>`;
-        }).join('') + '</ul>';
+      // Calculate total points for filtered period
+      const totalPoints = rows.reduce((sum, r) => {
+        const pts = getFilteredPoints(r, period).reduce((a, b) => a + b, 0);
+        return sum + pts;
+      }, 0);
+
+      let html = `<h3>${sheet}</h3><p><strong>Total Points (filtered):</strong> ${totalPoints}</p>`;
 
       if (showMeetings) {
-        const dateKeys = Object.keys(rows[0]).filter(k => /^\\d{1,2}-[A-Za-z]{3}-\\d{2}$/.test(k));
-        section.innerHTML += `<p><em>Meeting Dates:</em> ${dateKeys.join(', ')}</p>`;
+        // Show dates and points for filtered dates only
+        const firstRow = rows[0];
+        const dateKeys = Object.keys(firstRow).filter(k => /^\d{1,2}-[A-Za-z]{3}-\d{2}$/.test(k));
+        const filteredDates = dateKeys.filter(d => {
+          const date = parseDateStr(d);
+          if (!date) return false;
+          if (period) {
+            return date >= period.start && date <= period.end;
+          }
+          return true;
+        });
+
+        html += `<table border="1" style="border-collapse:collapse; margin-top:8px;">
+          <thead><tr><th>Date</th><th>Points</th></tr></thead><tbody>`;
+
+        filteredDates.forEach(dateKey => {
+          const pts = rows.reduce((sum, r) => {
+            const val = parseInt(r[dateKey]);
+            return sum + (isNaN(val) ? 0 : val);
+          }, 0);
+          html += `<tr><td>${dateKey}</td><td>${pts}</td></tr>`;
+        });
+        html += "</tbody></table>";
       }
 
+      section.innerHTML = html;
       container.appendChild(section);
     }
   });
 
-  // Render summary sheets (aggregate points)
+  // Render summary sheets (aggregated totals)
   summarySheets.forEach(sheet => {
-    const row = allData[sheet]?.elements.find(r => r.Name?.trim() === name);
+    if (!allData[sheet]) return;
+    const row = allData[sheet].elements.find(r => {
+      const n = (r.Name || "").trim();
+      return n === name && !n.toLowerCase().includes('meeting') && n !== '';
+    });
     if (row) {
       const totalPoints = parseInt(row.Total || row.Points || row["Total Points"]) || 0;
       const section = document.createElement("div");
       section.className = "member-section";
-      section.innerHTML = `<h3>${sheet}</h3><p><strong>Total points:</strong> ${totalPoints}</p>`;
+      section.innerHTML = `<h3>${sheet}</h3><p><strong>Total Points:</strong> ${totalPoints}</p>`;
       container.appendChild(section);
     }
   });
 }
 
+// Render the leaderboard view
 function renderLeaderboard() {
   toggleView('leaderboard');
   const leaderboardDiv = document.getElementById("leaderboard");
@@ -196,10 +242,10 @@ function renderLeaderboard() {
   summarySheets.forEach(sheet => {
     if (!allData[sheet]) return;
     allData[sheet].elements.forEach(r => {
-      if (!r.Name) return;
-      const name = r.Name.trim();
+      const n = (r.Name || "").trim();
+      if (!n || n.toLowerCase().includes('meeting') || n === '') return;
       const pts = parseInt(r.Total || r.Points || r["Total Points"]) || 0;
-      board[name] = (board[name] || 0) + pts;
+      board[n] = (board[n] || 0) + pts;
     });
   });
 
@@ -222,6 +268,7 @@ function renderLeaderboard() {
 
 let chartInstance = null;
 
+// Render bar chart of top 5 members
 function renderTopChart() {
   toggleView('chart');
 
@@ -230,10 +277,10 @@ function renderTopChart() {
   summarySheets.forEach(sheet => {
     if (!allData[sheet]) return;
     allData[sheet].elements.forEach(r => {
-      if (!r.Name) return;
-      const name = r.Name.trim();
+      const n = (r.Name || "").trim();
+      if (!n || n.toLowerCase().includes('meeting') || n === '') return;
       const pts = parseInt(r.Total || r.Points || r["Total Points"]) || 0;
-      board[name] = (board[name] || 0) + pts;
+      board[n] = (board[n] || 0) + pts;
     });
   });
 
