@@ -4,255 +4,66 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Toastmasters Points Dashboard</title>
-  
-  <!-- Toastmasters brand colors -->
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap');
 
-    :root {
-      --tm-red: #772432;
-      --tm-black: #000000;
-      --tm-white: #ffffff;
-      --tm-gray-light: #f2f2f2;
-      --tm-gray-dark: #666666;
-      --tm-accent: #d13434;
-    }
-
-    body {
-      font-family: 'Montserrat', sans-serif;
-      background-color: var(--tm-gray-light);
-      margin: 0;
-      padding: 0;
-      color: var(--tm-black);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    header {
-      background-color: var(--tm-red);
-      color: var(--tm-white);
-      padding: 1rem 2rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-    }
-
-    header img {
-      height: 50px;
-      width: auto;
-    }
-
-    header h1 {
-      font-weight: 600;
-      font-size: 1.75rem;
-      margin: 0;
-      flex-grow: 1;
-      user-select: none;
-    }
-
-    main {
-      flex-grow: 1;
-      max-width: 1200px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-      width: 100%;
-    }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      align-items: center;
-      justify-content: center;
-    }
-
-    label {
-      font-weight: 600;
-      color: var(--tm-red);
-    }
-
-    select, input[type="date"] {
-      padding: 0.35rem 0.5rem;
-      border: 2px solid var(--tm-red);
-      border-radius: 5px;
-      font-size: 1rem;
-      min-width: 150px;
-      transition: border-color 0.3s ease;
-    }
-    select:focus, input[type="date"]:focus {
-      outline: none;
-      border-color: var(--tm-accent);
-    }
-
-    input[type="checkbox"] {
-      transform: scale(1.2);
-      margin-left: 0.25rem;
-      cursor: pointer;
-    }
-
-    button {
-      background-color: var(--tm-red);
-      border: none;
-      color: var(--tm-white);
-      padding: 0.5rem 1.25rem;
-      font-weight: 600;
-      font-size: 1rem;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      user-select: none;
-    }
-
-    button:hover, button:focus {
-      background-color: var(--tm-accent);
-      outline: none;
-    }
-
-    #memberData section {
-      margin-bottom: 2.5rem;
-      background: var(--tm-white);
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      padding: 1rem 1.5rem;
-    }
-
-    #memberData section h2 {
-      color: var(--tm-red);
-      border-bottom: 2px solid var(--tm-red);
-      padding-bottom: 0.3rem;
-      margin-bottom: 1rem;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-      table-layout: fixed;
-      word-wrap: break-word;
-    }
-
-    th, td {
-      padding: 0.45rem 0.6rem;
-      border: 1px solid #ddd;
-      text-align: center;
-      vertical-align: middle;
-    }
-
-    th {
-      background-color: var(--tm-red);
-      color: var(--tm-white);
-      font-weight: 600;
-      user-select: none;
-    }
-
-    tr:nth-child(even) {
-      background-color: #fafafa;
-    }
-
-    tr:hover {
-      background-color: #ffe6e6;
-      transition: background-color 0.3s ease;
-    }
-
-    #leaderboardView, #top5Chart {
-      max-width: 700px;
-      margin: 0 auto 2rem;
-      background: var(--tm-white);
-      padding: 1.5rem 1.75rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      display: none;
-    }
-
-    #leaderboardView h2 {
-      color: var(--tm-red);
-      margin-bottom: 1rem;
-      text-align: center;
-    }
-
-    #leaderboardView table {
-      font-size: 1rem;
-    }
-
-    #leaderboardView table th, #leaderboardView table td {
-      padding: 0.7rem 0.9rem;
-    }
-
-    .meeting-number-row th {
-      font-weight: 400;
-      font-style: italic;
-      background-color: #fff0f0;
-      color: var(--tm-red);
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .controls {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      select, input[type="date"], button {
-        min-width: 100%;
-      }
-      #leaderboardView, #top5Chart {
-        width: 100%;
-      }
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <img src="https://upload.wikimedia.org/wikipedia/commons/7/7b/Toastmasters_International_Logo.svg" alt="Toastmasters Logo" />
-    <h1>Toastmasters Points Dashboard</h1>
-  </header>
-
-  <main>
-    <div class="controls" role="region" aria-label="Filter and view controls">
-      <label for="memberSelect">Member:</label>
-      <select id="memberSelect" aria-describedby="memberHelp">
-        <option value="">-- Select member --</option>
-      </select>
-
-      <label for="periodSelect">Period:</label>
-      <select id="periodSelect" aria-describedby="periodHelp">
-        <option value="all">All Time</option>
-        <option value="month">This Month</option>
-        <option value="quarter">This Quarter</option>
-        <option value="custom">Custom Range</option>
-      </select>
-
-      <label for="startDate" style="display:none;">Start Date:</label>
-      <input type="date" id="startDate" style="display:none;" aria-label="Start date" />
-
-      <label for="endDate" style="display:none;">End Date:</label>
-      <input type="date" id="endDate" style="display:none;" aria-label="End date" />
-
-      <label for="toggleMeetingNumbers" style="white-space: nowrap; display:flex; align-items:center; gap:0.25rem;">
-        Show Meeting Numbers
-        <input type="checkbox" id="toggleMeetingNumbers" aria-checked="false" />
-      </label>
-
-      <button id="showLeaderboardBtn" aria-pressed="false">Show Leaderboard</button>
-      <button id="showChartBtn" aria-pressed="false">Show Top 5 Chart</button>
-      <button id="clearFiltersBtn">Clear Filters</button>
-    </div>
-
-    <div id="memberData" aria-live="polite" aria-atomic="true">
-      <p>Please select a member to see details.</p>
-    </div>
-
-    <section id="leaderboardView" aria-label="Leaderboard view" tabindex="-1"></section>
-    <canvas id="top5Chart" aria-label="Top 5 Members Chart" role="img"></canvas>
-  </main>
+  <!-- Toastmasters brand CSS -->
+  <link rel="stylesheet" href="style.css" />
 
   <!-- External libraries -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <img src="https://www.toastmasters.org/themes/custom/toastmasters_bootstrap/logo.svg" alt="Toastmasters Logo" />
+    <h1>Toastmasters Points Dashboard</h1>
+  </header>
 
-  <!-- Main script -->
+  <main>
+    <div class="controls">
+      <label for="memberSelect">Select Member:</label>
+      <select id="memberSelect" aria-label="Select Member">
+        <option value="">-- Choose a Member --</option>
+      </select>
+
+      <label for="periodStart">Start Date:</label>
+      <input type="date" id="periodStart" aria-label="Start Date" />
+
+      <label for="periodEnd">End Date:</label>
+      <input type="date" id="periodEnd" aria-label="End Date" />
+
+      <label for="toggleMeetingNum">Show Meeting Numbers
+        <input type="checkbox" id="toggleMeetingNum" checked />
+      </label>
+
+      <button id="refreshBtn" aria-label="Refresh Data">Refresh</button>
+      <button id="showLeaderboardBtn" aria-label="Show Leaderboard">Show Leaderboard</button>
+    </div>
+
+    <div id="memberData" aria-live="polite">
+      <!-- Member detailed points will appear here -->
+    </div>
+
+    <section id="leaderboardView" aria-live="polite" aria-label="Leaderboard">
+      <h2>Leaderboard</h2>
+      <table role="table" aria-describedby="leaderboard-desc">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Member</th>
+            <th>Total Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Leaderboard data will be injected here -->
+        </tbody>
+      </table>
+    </section>
+
+    <section id="top5Chart" aria-label="Top 5 Members Chart">
+      <canvas id="top5BarChart" role="img" aria-label="Bar chart showing top 5 members"></canvas>
+    </section>
+  </main>
+
   <script src="script.js"></script>
 </body>
 </html>
