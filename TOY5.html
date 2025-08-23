@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Toastmasters Club – Points Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--tm-primary:#004165;--tm-accent:#772432;--tm-light:#f2df74;--bg:#f7f7f7;--text:#333;--font:'Open Sans',Arial,sans-serif}
+    body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh}
+    header{background:var(--tm-primary);color:white;padding:1rem 2rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+    header img{height:50px}
+    header h1{margin:0;font-size:1.6rem;font-weight:700}
+    main{flex:1;padding:1rem 2rem;max-width:1100px;margin:auto}
+    .controls{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;align-items:center}
+    .controls label{font-weight:600}
+    .controls select,.controls input[type="date"]{padding:.4rem .6rem;font-size:1rem;border:1px solid var(--tm-accent);border-radius:4px}
+    .controls label.toggle{display:flex;align-items:center;cursor:pointer}
+    .controls label.toggle input{margin-right:.5rem}
+    section h2{border-bottom:2px solid var(--tm-accent);font-size:1.4rem;padding-bottom:.2rem;margin-top:1.5rem}
+    .member-category{margin-bottom:2rem;background:white;border:1px solid #ccc;border-radius:6px;padding:.8rem;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+    .table-controls{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem}
+    .table-controls .filter-input{flex:1;min-width:180px;padding:.4rem .6rem;border:1px solid #ccc;border-radius:4px}
+    .table-controls button{background:var(--tm-accent);color:white;padding:.4rem 1rem;border:none;border-radius:4px;font-weight:600;cursor:pointer;transition:background .3s}
+    .table-controls button:hover{background:#5a1f2e}
+    .table-container{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;margin-top:.5rem}
+    th,td{padding:.5rem .8rem;border:1px solid #ccc;text-align:left;font-size:.95rem}
+    th{position:sticky;top:0;background:var(--tm-accent);color:white;font-weight:600}
+    tr:nth-child(even){background:#fefefe}
+    tr:hover{background:var(--tm-light)}
+    .no-data{font-style:italic;color:#666}
+    .pagination{margin-top:.5rem;display:flex;gap:.3rem}
+    .pagination button{background:var(--tm-accent);color:white;padding:.3rem .6rem;border:none;border-radius:3px;cursor:pointer}
+    .pagination button[disabled]{background:#aaa;cursor:default}
+    #leaderboard ol{padding-left:1.2rem;font-size:1rem}
+    #leaderboard canvas{max-width:100%;margin-top:1rem}
+    footer{padding:1rem 2rem;background:var(--tm-primary);color:white;text-align:center;font-size:.9rem}
+    @media(max-width:600px){.controls{flex-direction:column}.table-controls{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/f/f3/Toastmasters_International_logo.svg" alt="Toastmasters Logo">
+    <h1>Toastmasters Club Points Dashboard</h1>
+  </header>
+  <main>
+    <section class="controls">
+      <label>Member: <select id="memberSelect" disabled><option>Loading...</option></select></label>
+      <label>From: <input type="date" id="startDate" disabled></label>
+      <label>To: <input type="date" id="endDate" disabled></label>
+      <label class="toggle"><input type="checkbox" id="toggleMeeting"> Show Meeting Numbers</label>
+    </section>
+    <section id="memberDetailsSection">
+      <h2>Member Detailed Points</h2>
+      <div id="memberDetails"><p>Please select a member and date range.</p></div>
+      <button id="exportAllBtn" style="display:none; margin-top:.5rem;">Export All</button>
+    </section>
+    <section id="leaderboardSection">
+      <h2>Leaderboard</h2>
+      <div id="leaderboard">Loading leaderboard...</div>
+      <canvas id="top5Chart" aria-label="Top 5 Members Chart"></canvas>
+    </section>
+  </main>
+  <footer>Powered by Toastmasters Club Dashboard</footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const csvUrls = {
+      "Role Taking": "...&output=csv",
+      "Speeches": "...&output=csv",
+      "Evaluations": "...&output=csv",
+      "Level Completions": "...&output=csv",
+      "Awards": "...&output=csv",
+      "ExCom & Sub": "...&output=csv",
+      "Table Topics": "...&output=csv",
+      "Early Attendance": "...&output=csv"
+    };
+    const allData={}, memberSet=new Set(), state={};
+
+    const escapeHtml=s=>s? s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m])):'';
+    const capitalize=s=>s.replace(/\b\w/g,c=>c.toUpperCase());
+    const parseD=s=>{let d=new Date(s);return isNaN(d)?null:d;};
+
+    function ptsOf(cat,r){
+      switch(cat){
+        case "Role Taking": return 2;
+        case "Speeches": return 5;
+        case "Evaluations": return 3;
+        case "Level Completions":
+          return r.Level?.includes("5")?10:5;
+        case "Awards": return 15;
+        case "ExCom & Sub": return 4;
+        case "Table Topics": return 2;
+        case "Early Attendance": return 1;
+        default:
+          const p=Number(r.points);
+          return isNaN(p)?0:p;
+      }
+    }
+
+    function loadData(){
+      return Promise.all(Object.entries(csvUrls).map(([k,u])=>
+        fetch(u).then(r=>r.ok?r.text():Promise.reject()).then(txt=>{
+          const {data}=Papa.parse(txt,{header:true,skipEmptyLines:true});
+          allData[k]=data;
+          data.forEach(r=>r.Name&&memberSet.add(r.Name.trim()));
+        }).catch(e=>allData[k]=[])
+      ));
+    }
+
+    function populateMembers(){
+      const sel=document.getElementById('memberSelect');
+      sel.innerHTML='<option disabled selected>-- Choose Member --</option>';
+      Array.from(memberSet).sort().forEach(m=>
+        sel.innerHTML+=`<option>${escapeHtml(m)}</option>`
+      );
+      sel.disabled=false;
+    }
+
+    function filterRows(cat,mem,fD,tD){
+      return allData[cat].filter(r=>{
+        if(!r.Name||r.Name.trim()!==mem)return false;
+        const dt=parseD(r['Date']||r['Meeting Date']||r['date']);
+        return (!fD||dt>=fD)&&(!tD||dt<=tD);
+      });
+    }
+
+    function paginate(a,p=1){return a.slice((p-1)*10,p*10);}
+
+    function makeTable(cat,rows,showMeet,page=1){
+      if(!rows.length) return '<p class="no-data">No records.</p>';
+      const cols=Object.keys(rows[0]).filter(c=>showMeet||!/meeting\s*no/i.test(c));
+      const pgrows=paginate(rows,page), tot=Math.ceil(rows.length/10);
+      let html='<table><thead><tr>'+cols.map(c=>`<th>${escapeHtml(capitalize(c))}</th>`).join('')+'</tr></thead><tbody>';
+      pgrows.forEach(r=>html+='<tr>'+cols.map(c=>`<td>${escapeHtml(r[c]||'')}</td>`).join('')+'</tr>');
+      html+='</tbody></table><div class="pagination">';
+      ['«','‹',...Array(tot).keys().map(i=>i+1),'›','»'].forEach(l=>{
+        let p=l==='«'?1:l==='‹'?page-1:l==='›'?page+1:l==='»'?tot: l;
+        html+=`<button data-cat="${cat}" data-page="${p}" ${p<1||p>tot?'disabled':''}>${l}</button>`;
+      });
+      html+='</div>';
+      return html;
+    }
+
+    function renderDetails(){
+      const mem=document.getElementById('memberSelect').value;
+      const fD=parseD(document.getElementById('startDate').value);
+      const tD=parseD(document.getElementById('endDate').value);
+      const showM=document.getElementById('toggleMeeting').checked;
+      const cont=document.getElementById('memberDetails');
+      cont.innerHTML=''; document.getElementById('exportAllBtn').style.display='inline-block';
+      Object.keys(allData).forEach(cat=>{
+        const rows=filterRows(cat,mem,fD,tD);
+        state[cat]={rows,page:1,showM,filter:''};
+        cont.innerHTML+=`<section class="member-category"><h3>${capitalize(cat)}</h3>
+          <div class="table-controls">
+            <input class="filter-input" placeholder="Filter..." data-cat="${cat}">
+            <button data-cat="${cat}" class="export-btn">Export CSV</button>
+          </div>
+          <div id="tbl-${cat}">${makeTable(cat,rows,showM)}</div>
+        </section>`;
+      });
+      attachCtrls();
+    }
+
+    function attachCtrls(){
+      document.querySelectorAll('.filter-input').forEach(i=>i.oninput=e=>{
+        const cat=e.target.dataset.cat;
+        state[cat].filter=e.target.value.toLowerCase();
+        state[cat].page=1; renderCat(cat);
+      });
+      document.querySelectorAll('.pagination button').forEach(b=>b.onclick=e=>{
+        const {cat,page} = b.dataset;
+        state[cat].page=Number(page); renderCat(cat);
+      });
+      document.querySelectorAll('.export-btn').forEach(b=>b.onclick=e=>{
+        const cat=b.dataset.cat; exportCat(cat);
+      });
+    }
+
+    function renderCat(cat){
+      let rows=state[cat].rows;
+      if(state[cat].filter)
+        rows=rows.filter(r=>Object.values(r).some(v=>v && v.toString().toLowerCase().includes(state[cat].filter)));
+      state[cat].filtered=rows;
+      document.getElementById(`tbl-${cat}`).innerHTML=makeTable(cat,rows,state[cat].showM,state[cat].page);
+      attachCtrls();
+    }
+
+    function exportCat(cat){
+      const rows=state[cat].filtered||state[cat].rows;
+      if(!rows.length)return alert('No data');
+      const csv=Papa.unparse(rows);
+      const blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');
+      a.href=URL.createObjectURL(blob); a.download=`${cat.replace(/\s+/g,'_')}.csv`;a.click();
+    }
+
+    function exportAll(){
+      const all=[];
+      Object.entries(state).forEach(([cat,s])=>{
+        (s.filtered||s.rows).forEach(r=>all.push({Category:cat,...r}));
+      });
+      if(!all.length)return alert('No data');
+      const csv=Papa.unparse(all);
+      const blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');
+      a.href=URL.createObjectURL(blob); a.download='All_Data.csv';a.click();
+    }
+
+    function calcLeaderboard(){
+      const fD=parseD(document.getElementById('startDate').value);
+      const tD=parseD(document.getElementById('endDate').value);
+      const tot={};
+      Object.entries(allData).forEach(([cat,_])=>{
+        allData[cat].forEach(r=>{
+          const d=parseD(r['Date']||r['Meeting Date']||'');
+          if((!fD||d>=fD)&&(!tD||d<=tD)&&r.points&&r.Name){
+            const n=r.Name.trim();
+            tot[n]=(tot[n]||0)+ptsOf(cat,r);
+          }
+        });
+      });
+      const sorted=Object.entries(tot).sort((a,b)=>b[1]-a[1]);
+      const lb=document.getElementById('leaderboard');
+      lb.innerHTML=sorted.length?'<ol>'+sorted.map(e=>`<li>${escapeHtml(e[0])}: ${e[1]}</li>`).join('')+'</ol>'
+                        :'<p class="no-data">No data</p>';
+      const ctx=document.getElementById('top5Chart').getContext('2d');
+      if(window.chart) window.chart.destroy();
+      const top5=sorted.slice(0,5);
+      window.chart=new Chart(ctx,{type:'bar',
+        data:{labels:top5.map(e=>e[0]),datasets:[{data:top5.map(e=>e[1]),backgroundColor:'#772432'}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+    }
+
+    document.addEventListener('DOMContentLoaded',()=>{
+      loadData().then(()=>{
+        populateMembers();
+        ['memberSelect','startDate','endDate'].forEach(id=>document.getElementById(id).disabled=false);
+        document.getElementById('exportAllBtn').onclick=exportAll;
+        ['memberSelect','startDate','endDate','toggleMeeting'].forEach(id=>
+          document.getElementById(id).oninput=()=>{
+            renderDetails(); calcLeaderboard();
+          });
+        calcLeaderboard();
+      });
+    });
+  </script>
+</body>
+</html>
