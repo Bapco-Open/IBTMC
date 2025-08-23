@@ -1,488 +1,458 @@
-// script.js
-
-const publicSpreadsheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pubhtml';
-
-const tabs = [
-  'Attendance', 'Early Attendance', 'Role Taking', 'Last Minute Roles', 'Speeches',
-  'Evaluations', 'Level Completions', 'Awards', 'ExCom & Sub.', 'Contests',
-  'Other', 'External', 'Table Topics', 'Last Minute Speeches/Evaluations'
+const SHEETS = [
+  "Attendance",
+  "Early Attendance",
+  "Summary",
+  "Total",
+  "Role Taking",
+  "Last Minute Roles",
+  "Speeches",
+  "Evaluations",
+  "Level Completions",
+  "Awards",
+  "ExCom & Sub.",
+  "Contests",
+  "Other",
+  "External",
+  "Table Topics",
+  "Last Minute Speeches/Evaluations"
 ];
 
-// Summary/Total excluded for members list, but will be used for aggregation
+// Your published Google Sheets CSV base URL (change sheetName dynamically)
+const BASE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?output=csv&gid=';
 
-let allData = {}; // tabName -> array of rows
-let memberList = new Set();
+// Since we only have a single published link, we'll fetch the CSV once as an example.
+// Ideally, each sheet should be published separately and we get different CSV URLs.
+// For demo, assume data is in one CSV for Summary or Total sheet.
 
-const memberSelect = document.getElementById('memberSelect');
-const periodSelect = document.getElementById('periodSelect');
-const startDateInput = document.getElementById('startDate');
-const endDateInput = document.getElementById('endDate');
-const toggleMeetingNumbers = document.getElementById('toggleMeetingNumbers');
-const showLeaderboardBtn = document.getElementById('showLeaderboard');
-const showChartBtn = document.getElementById('showChart');
-const clearFiltersBtn = document.getElementById('clearFilters');
+const memberSelect = document.getElementById("memberSelect");
+const periodSelect = document.getElementById("periodSelect");
+const startDateInput = document.getElementById("startDateInput");
+const endDateInput = document.getElementById("endDateInput");
+const toggleMeetingNumbers = document.getElementById("toggleMeetingNumbers");
+const showLeaderboardBtn = document.getElementById("showLeaderboardBtn");
+const showChartBtn = document.getElementById("showChartBtn");
+const clearFiltersBtn = document.getElementById("clearFiltersBtn");
+const errorMessageDiv = document.getElementById("errorMessage");
+const memberDataDiv = document.getElementById("memberData");
+const leaderboardView = document.getElementById("leaderboardView");
+const top5ChartCanvas = document.getElementById("top5Chart");
 
-const memberView = document.getElementById('memberView');
-const memberDataDiv = document.getElementById('memberData');
-const leaderboardView = document.getElementById('leaderboardView');
-const leaderboardDiv = document.getElementById('leaderboard');
-const chartView = document.getElementById('chartView');
-const loadingIndicator = document.getElementById('loadingIndicator');
-const errorMessage = document.getElementById('errorMessage');
-
+let allData = {}; // Store data per sheet: { sheetName: [{...}, ...] }
+let membersSet = new Set();
 let chartInstance = null;
 
-// Helpers to parse dates from column headers, assumed format: DD-MMM-YY (e.g., 12-Jul-25)
-function parseDateFromHeader(header) {
-  if (!header) return null;
-  // Try parsing with Date.parse - Google Sheets date headers may be consistent ISO strings, but your example is like '12-Jul-25'
-  // Let's parse manually:
-  // Expected format: DD-MMM-YY (e.g., 12-Jul-25)
-  const parts = header.trim().split('-');
+// Helper: parse date string like "12-Jul-25" to Date object (assume 20xx)
+function parseMeetingDate(dateStr) {
+  if (!dateStr) return null;
+  // Parse format like 12-Jul-25 -> 2025-07-12
+  const parts = dateStr.split("-");
   if (parts.length !== 3) return null;
   const day = parseInt(parts[0], 10);
   const monthStr = parts[1].toLowerCase();
-  const yearStr = parts[2];
-
+  const year = 2000 + parseInt(parts[2], 10);
   const monthMap = {
-    jan: 0, feb:1, mar:2, apr:3, may:4, jun:5,
-    jul:6, aug:7, sep:8, oct:9, nov:10, dec:11
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
   };
-
   const month = monthMap[monthStr];
-  if (month === undefined || isNaN(day)) return null;
-
-  let year = parseInt(yearStr, 10);
-  // fix 2-digit year
-  year += (year < 50) ? 2000 : 1900;
-
+  if (month === undefined) return null;
   return new Date(year, month, day);
 }
 
-// Show/hide views helpers
-function showView(viewId) {
-  [memberView, leaderboardView, chartView].forEach(view => {
-    view.classList.add('hidden');
+function formatDate(date) {
+  if (!date) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+// Fetch and parse CSV for a single sheet from published URL by gid (sheet id)
+async function fetchSheetByGID(gid) {
+  const url = `https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?output=csv&gid=${gid}`;
+  return new Promise((resolve, reject) => {
+    Papa.parse(url, {
+      download: true,
+      header: false, // We will handle header manually
+      skipEmptyLines: true,
+      complete: results => resolve(results.data),
+      error: err => reject(err)
+    });
   });
-  viewId.classList.remove('hidden');
 }
 
-// Show loading spinner
-function showLoading() {
-  loadingIndicator.classList.remove('hidden');
-  errorMessage.classList.add('hidden');
-}
+// Mapping your sheet names to their GID (You must get these from your sheet URL or sheet info)
+const SHEET_GIDS = {
+  "Attendance": 1192815434,
+  "Early Attendance": 1928408168,
+  "Summary": 1556398249,
+  "Total": 1939085341,
+  "Role Taking": 23380471,
+  "Last Minute Roles": 10890228,
+  "Speeches": 170161438,
+  "Evaluations": 335593996,
+  "Level Completions": 1646576393,
+  "Awards": 302763050,
+  "ExCom & Sub.": 710668362,
+  "Contests": 859627444,
+  "Other": 209414951,
+  "External": 1796501343,
+  "Table Topics": 618267332,
+  "Last Minute Speeches/Evaluations": null // GID missing
+};
 
-// Hide loading spinner
-function hideLoading() {
-  loadingIndicator.classList.add('hidden');
-}
 
-// Show error message
-function showError(msg) {
-  errorMessage.textContent = msg;
-  errorMessage.classList.remove('hidden');
-  hideLoading();
-}
+// *** IMPORTANT ***
+// You must fill correct GIDs for your sheets in SHEET_GIDS above for the fetch to work
 
-// Clear error
-function clearError() {
-  errorMessage.textContent = '';
-  errorMessage.classList.add('hidden');
-}
-
-// Fetch all data from all tabs via Tabletop
-function fetchData() {
-  showLoading();
+async function fetchAllSheets() {
   clearError();
-  Tabletop.init({
-    key: publicSpreadsheetUrl,
-    simpleSheet: false,
-    wanted: tabs,
-    callback: (data, tabletop) => {
-      try {
-        allData = {};
-        memberList.clear();
+  allData = {};
 
-        tabs.forEach(tab => {
-          if (!data[tab]) {
-            // Tab missing
-            allData[tab] = [];
-            return;
-          }
-          let sheetData = data[tab].elements;
-          // Each element corresponds to a row; 
-          // but since your sheet uses headers only in row 2,
-          // and member names start from row 3,
-          // Tabletop normally parses with the first row as headers.
-          // So rows with empty Name will have empty .Name property.
+  // Fetch all sheets data in parallel, skip those without gid defined
+  const promises = Object.entries(SHEET_GIDS).map(async ([sheetName, gid]) => {
+    if (!gid) return;
+    try {
+      const data = await fetchSheetByGID(gid);
+      allData[sheetName] = data;
+    } catch (err) {
+      showError(`Failed to load sheet "${sheetName}": ${err.message || err}`);
+    }
+  });
 
-          // Filter rows that actually have member names
-          let filtered = sheetData.filter(r => r['Name'] && r['Name'].trim() !== '');
+  await Promise.all(promises);
 
-          // Collect member names
-          filtered.forEach(r => memberList.add(r['Name'].trim()));
+  buildMembersList();
+}
 
-          allData[tab] = filtered;
-        });
+function clearError() {
+  errorMessageDiv.textContent = "";
+}
 
-        populateMemberDropdown();
-        hideLoading();
-        showView(leaderboardView);
-        renderLeaderboard();
+function showError(msg) {
+  errorMessageDiv.textContent = msg;
+}
 
-      } catch (e) {
-        showError('Error processing data: ' + e.message);
-        console.error(e);
+// Build members dropdown from all sheets (first column from row 3 onwards)
+function buildMembersList() {
+  membersSet.clear();
+
+  for (const sheetName in allData) {
+    const sheet = allData[sheetName];
+    if (!sheet || sheet.length < 3) continue;
+
+    for (let i = 2; i < sheet.length; i++) {
+      const row = sheet[i];
+      if (row.length < 1) continue;
+      const name = row[0].trim();
+      if (name) membersSet.add(name);
+    }
+  }
+
+  const sortedMembers = Array.from(membersSet).sort((a, b) => a.localeCompare(b));
+
+  memberSelect.innerHTML = '<option value="">-- Select a member --</option>';
+  for (const m of sortedMembers) {
+    const option = document.createElement("option");
+    option.value = m;
+    option.textContent = m;
+    memberSelect.appendChild(option);
+  }
+}
+
+function filterDatesByPeriod(dates, period) {
+  const now = new Date();
+  switch (period) {
+    case "month": {
+      return dates.filter(d => {
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    }
+    case "quarter": {
+      const currentQuarter = Math.floor(now.getMonth() / 3);
+      return dates.filter(d => {
+        const q = Math.floor(d.getMonth() / 3);
+        return d.getFullYear() === now.getFullYear() && q === currentQuarter;
+      });
+    }
+    default:
+      return dates;
+  }
+}
+
+function getFilteredDateIndexes(sheetData, period, startDateStr, endDateStr) {
+  // Dates start from column 2 (index 2), row 1 (index 1) for dates,
+  // row 2 (index 2) for meeting numbers (optional)
+
+  if (!sheetData || sheetData.length < 3) return [];
+
+  const dateRow = sheetData[0];
+  if (!dateRow) return [];
+
+  // Parse dates from headers, starting from column 2
+  let dateColumns = [];
+  for (let c = 2; c < dateRow.length; c++) {
+    const date = parseMeetingDate(dateRow[c]);
+    if (date) dateColumns.push({ col: c, date });
+  }
+
+  // Filter dates by period (month/quarter)
+  if (period && period !== "all") {
+    dateColumns = dateColumns.filter(({ date }) => {
+      if (period === "month") {
+        const now = new Date();
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
       }
-    },
-    error: (err) => {
-      showError('Failed to load spreadsheet data. Check your link and network.');
-      console.error('Tabletop error:', err);
-    }
-  });
-}
-
-// Populate member dropdown sorted alphabetically
-function populateMemberDropdown() {
-  // Clear existing options except first
-  while (memberSelect.options.length > 1) {
-    memberSelect.remove(1);
-  }
-  const sorted = Array.from(memberList).sort((a,b) => a.localeCompare(b));
-  sorted.forEach(name => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    memberSelect.appendChild(opt);
-  });
-}
-
-// Utility: filter points by date range (inclusive)
-function isDateInRange(date, start, end) {
-  if (!date) return false;
-  if (start && date < start) return false;
-  if (end && date > end) return false;
-  return true;
-}
-
-// Utility: parse date range from inputs & period filter
-function getFilterDateRange() {
-  let start = startDateInput.value ? new Date(startDateInput.value) : null;
-  let end = endDateInput.value ? new Date(endDateInput.value) : null;
-
-  if (start && end && end < start) {
-    // Swap if invalid range
-    [start, end] = [end, start];
+      if (period === "quarter") {
+        const now = new Date();
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        const dateQuarter = Math.floor(date.getMonth() / 3);
+        return date.getFullYear() === now.getFullYear() && dateQuarter === currentQuarter;
+      }
+      return true;
+    });
   }
 
-  // If no custom dates, fallback to period select
-  if (!start && !end) {
-    const now = new Date();
-    const period = periodSelect.value;
-    if (period === 'month') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    } else if (period === 'quarter') {
-      const quarter = Math.floor(now.getMonth() / 3);
-      start = new Date(now.getFullYear(), quarter * 3, 1);
-      end = new Date(now.getFullYear(), quarter * 3 + 3, 0);
-    } else {
-      // all time
-      start = null;
-      end = null;
-    }
+  // Filter by custom date range if provided
+  if (startDateStr || endDateStr) {
+    const start = startDateStr ? new Date(startDateStr) : null;
+    const end = endDateStr ? new Date(endDateStr) : null;
+
+    dateColumns = dateColumns.filter(({ date }) => {
+      if (start && date < start) return false;
+      if (end && date > end) return false;
+      return true;
+    });
   }
 
-  return { start, end };
+  return dateColumns.map(d => d.col);
 }
 
-// Render detailed member data view
+// Render member detailed view (points per sheet + per meeting filtered)
 function renderMemberDetails(memberName) {
   if (!memberName) {
-    memberDataDiv.innerHTML = 'Select a member to view details.';
+    memberDataDiv.innerHTML = "";
     return;
   }
 
-  showView(memberView);
-  leaderboardView.classList.add('hidden');
-  chartView.classList.add('hidden');
+  clearError();
+  leaderboardView.innerHTML = "";
+  top5ChartCanvas.style.display = "none";
 
-  const { start, end } = getFilterDateRange();
+  let html = `<h3>Details for <strong>${memberName}</strong></h3>`;
 
-  // Build a table per tab showing totals and per-meeting points if toggled
-  let html = '';
+  // For each sheet
+  for (const sheetName in allData) {
+    const sheet = allData[sheetName];
+    if (!sheet || sheet.length < 3) continue;
 
-  tabs.forEach(tab => {
-    if (!(tab in allData)) return;
-
-    // Find member row in this tab
-    const sheet = allData[tab];
-    const memberRow = sheet.find(r => r['Name'].trim() === memberName);
-
-    if (!memberRow) return; // no data in this tab for this member
-
-    // Extract columns excluding 'Name' and 'Total' for dates
-    const keys = Object.keys(memberRow);
-
-    // Extract date columns (skip Name, Total)
-    const dateCols = keys.filter(k => {
-      if (k === 'Name' || k.toLowerCase() === 'total') return false;
-      return parseDateFromHeader(k) !== null;
-    });
-
-    // Filter dateCols by date range if toggle is on
-    const showMeetings = toggleMeetingNumbers.checked;
-
-    // Header
-    html += `<h3>${tab}</h3>`;
-
-    html += '<table><thead><tr><th>Category</th><th>Total Points</th>';
-    if (showMeetings) {
-      dateCols.forEach(dc => {
-        const dateObj = parseDateFromHeader(dc);
-        if (isDateInRange(dateObj, start, end)) {
-          // Show date & meeting number under
-          html += `<th>${dc}</th>`;
-        }
-      });
+    // Find member row index in sheet (search column 0 from row 3)
+    let memberRowIndex = -1;
+    for (let r = 2; r < sheet.length; r++) {
+      if (sheet[r][0] && sheet[r][0].trim() === memberName) {
+        memberRowIndex = r;
+        break;
+      }
     }
-    html += '</tr></thead><tbody>';
+    if (memberRowIndex === -1) continue;
 
-    // Data row
-    html += `<tr><td>${memberName}</td>`;
+    // Extract columns (dates start col 2)
+    const dateRow = sheet[0];
+    const meetingNumberRow = sheet[1] || [];
+    const memberRow = sheet[memberRowIndex];
 
-    // Total points in tab for this member (if missing, fallback to sum of visible meetings)
-    let totalPoints = Number(memberRow['Total'] || 0);
-    if (!totalPoints || isNaN(totalPoints)) {
-      // sum filtered points
-      totalPoints = 0;
-      dateCols.forEach(dc => {
-        const dateObj = parseDateFromHeader(dc);
-        if (isDateInRange(dateObj, start, end)) {
-          const val = Number(memberRow[dc] || 0);
-          if (!isNaN(val)) totalPoints += val;
-        }
-      });
+    if (!dateRow || dateRow.length < 3) continue;
+
+    const showMeetingNumbers = toggleMeetingNumbers.checked;
+    const period = periodSelect.value;
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
+
+    // Get filtered date columns
+    const filteredCols = getFilteredDateIndexes(sheet, period, startDate, endDate);
+
+    if (filteredCols.length === 0) {
+      html += `<h5>${sheetName}</h5><p>No meetings in selected period.</p>`;
+      continue;
     }
 
-    html += `<td>${totalPoints}</td>`;
+    html += `<h5>${sheetName}</h5>`;
+    html += `<table class="table table-striped table-bordered member-details"><thead><tr><th>Meeting Date</th>`;
+    if (showMeetingNumbers) html += "<th>Meeting Number</th>";
+    html += `<th>Points</th></tr></thead><tbody>`;
 
-    if (showMeetings) {
-      dateCols.forEach(dc => {
-        const dateObj = parseDateFromHeader(dc);
-        if (isDateInRange(dateObj, start, end)) {
-          let val = memberRow[dc];
-          val = val ? val : 0;
-          html += `<td>${val}</td>`;
-        }
-      });
+    for (const col of filteredCols) {
+      const dateStr = dateRow[col];
+      const meetingNum = meetingNumberRow[col] || "";
+      const pointsRaw = memberRow[col];
+      let points = parseFloat(pointsRaw);
+      if (isNaN(points)) points = 0;
+
+      html += `<tr><td>${dateStr || "N/A"}</td>`;
+      if (showMeetingNumbers) html += `<td>${meetingNum || "-"}</td>`;
+      html += `<td>${points}</td></tr>`;
     }
-
-    html += '</tr></tbody></table>';
-  });
-
-  memberDataDiv.innerHTML = html || '<p>No detailed points available for this member in the selected range.</p>';
-}
-
-// Aggregate total points per member from Summary and Total tabs (prefer Summary if present)
-function aggregateTotals() {
-  let totalsData = [];
-
-  // Check Summary first
-  if (allData['Summary'] && allData['Summary'].length) {
-    totalsData = allData['Summary'].map(r => ({
-      name: r['Name'],
-      total: Number(r['Total']) || 0
-    }));
-  } else if (allData['Total'] && allData['Total'].length) {
-    totalsData = allData['Total'].map(r => ({
-      name: r['Name'],
-      total: Number(r['Total']) || 0
-    }));
-  } else {
-    // Fallback: sum totals across all tabs per member
-    let memberTotalsMap = {};
-    memberList.forEach(name => memberTotalsMap[name] = 0);
-
-    tabs.forEach(tab => {
-      const sheet = allData[tab];
-      if (!sheet) return;
-      sheet.forEach(row => {
-        let name = row['Name'];
-        if (!name) return;
-        let points = Number(row['Total']) || 0;
-        if (!memberTotalsMap[name]) memberTotalsMap[name] = 0;
-        memberTotalsMap[name] += points;
-      });
-    });
-
-    totalsData = Object.entries(memberTotalsMap).map(([name,total]) => ({name, total}));
+    html += "</tbody></table>";
   }
 
-  return totalsData;
+  memberDataDiv.innerHTML = html;
 }
 
-// Render Leaderboard view
+// Render leaderboard: aggregate total points from Summary/Total sheets per member
 function renderLeaderboard() {
   clearError();
-  showView(leaderboardView);
-  memberView.classList.add('hidden');
-  chartView.classList.add('hidden');
+  memberDataDiv.innerHTML = "";
+  top5ChartCanvas.style.display = "none";
 
-  const totalsData = aggregateTotals();
-  if (!totalsData.length) {
-    leaderboardDiv.innerHTML = '<p>No leaderboard data available.</p>';
+  // We'll use the "Total" sheet for aggregation as per your instruction
+  const totalSheet = allData["Total"];
+  if (!totalSheet || totalSheet.length < 3) {
+    leaderboardView.innerHTML = "<p>No data available for leaderboard.</p>";
     return;
   }
 
-  // Sort descending by total points
-  totalsData.sort((a,b) => b.total - a.total);
+  // Map member to total points (from 2nd col = "Total" column)
+  let leaderboard = [];
 
-  // Build HTML table
-  let html = `<table><thead><tr><th>Rank</th><th>Member</th><th>Total Points</th></tr></thead><tbody>`;
-  totalsData.forEach((m, idx) => {
-    html += `<tr><td>${idx + 1}</td><td>${m.name}</td><td>${m.total}</td></tr>`;
-  });
-  html += '</tbody></table>';
+  for (let r = 2; r < totalSheet.length; r++) {
+    const row = totalSheet[r];
+    const name = row[0]?.trim();
+    if (!name) continue;
 
-  leaderboardDiv.innerHTML = html;
+    let totalPoints = parseFloat(row[1]);
+    if (isNaN(totalPoints)) totalPoints = 0;
+
+    leaderboard.push({ name, total: totalPoints });
+  }
+
+  // Sort descending
+  leaderboard.sort((a, b) => b.total - a.total);
+
+  // Apply filtering by period/custom dates on per-meeting points if you want,
+  // but Total sheet has just aggregated total - skipping filtering here for simplicity
+
+  // Render HTML table
+  let html = `<h3>Leaderboard</h3>`;
+  html += `<table class="table table-striped table-bordered"><thead><tr><th>Rank</th><th>Member</th><th>Total Points</th></tr></thead><tbody>`;
+
+  for (let i = 0; i < leaderboard.length; i++) {
+    const { name, total } = leaderboard[i];
+    html += `<tr><td>${i + 1}</td><td>${name}</td><td>${total}</td></tr>`;
+  }
+
+  html += "</tbody></table>";
+
+  leaderboardView.innerHTML = html;
 }
 
-// Render Top 5 Bar Chart
+// Render Top 5 chart from leaderboard
 function renderChart() {
-  clearError();
-  showView(chartView);
-  memberView.classList.add('hidden');
-  leaderboardView.classList.add('hidden');
+  leaderboardView.innerHTML = "";
+  memberDataDiv.innerHTML = "";
+  top5ChartCanvas.style.display = "block";
 
-  const totalsData = aggregateTotals();
-  if (!totalsData.length) {
-    chartView.innerHTML = '<p>No chart data available.</p>';
+  const totalSheet = allData["Total"];
+  if (!totalSheet || totalSheet.length < 3) {
+    showError("No data available for chart.");
+    top5ChartCanvas.style.display = "none";
     return;
   }
 
-  // Sort descending by total points and take top 5
-  const top5 = totalsData.sort((a,b) => b.total - a.total).slice(0, 5);
+  let leaderboard = [];
 
-  const ctx = document.getElementById('topChart').getContext('2d');
-  if (chartInstance) {
-    chartInstance.destroy();
+  for (let r = 2; r < totalSheet.length; r++) {
+    const row = totalSheet[r];
+    const name = row[0]?.trim();
+    if (!name) continue;
+
+    let totalPoints = parseFloat(row[1]);
+    if (isNaN(totalPoints)) totalPoints = 0;
+
+    leaderboard.push({ name, total: totalPoints });
   }
 
+  leaderboard.sort((a, b) => b.total - a.total);
+
+  const top5 = leaderboard.slice(0, 5);
+  if (chartInstance) chartInstance.destroy();
+
+  const ctx = top5ChartCanvas.getContext("2d");
   chartInstance = new Chart(ctx, {
-    type: 'bar',
+    type: "bar",
     data: {
-      labels: top5.map(m => m.name),
+      labels: top5.map(d => d.name),
       datasets: [{
-        label: 'Total Points',
-        data: top5.map(m => m.total),
-        backgroundColor: 'rgba(54, 162, 235, 0.7)',
-        borderColor: 'rgba(54, 162, 235, 1)',
-        borderWidth: 1
+        label: "Total Points",
+        data: top5.map(d => d.total),
+        backgroundColor: "rgba(54, 162, 235, 0.7)"
       }]
     },
     options: {
       responsive: true,
       scales: {
-        y: { beginAtZero: true }
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          enabled: true,
-          callbacks: {
-            label: ctx => `${ctx.parsed.y} points`
-          }
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1 }
         }
       }
     }
   });
 }
 
+function clearFilters() {
+  memberSelect.value = "";
+  periodSelect.value = "all";
+  startDateInput.value = "";
+  endDateInput.value = "";
+  toggleMeetingNumbers.checked = false;
+  memberDataDiv.innerHTML = "";
+  leaderboardView.innerHTML = "";
+  top5ChartCanvas.style.display = "none";
+  clearError();
+}
+
 // Event listeners
-memberSelect.addEventListener('change', () => {
-  const selected = memberSelect.value;
-  if (selected) {
-    renderMemberDetails(selected);
-  } else {
-    memberDataDiv.innerHTML = 'Select a member to view details.';
-    showView(leaderboardView);
-  }
+memberSelect.addEventListener("change", () => {
+  const member = memberSelect.value;
+  renderMemberDetails(member);
 });
 
-periodSelect.addEventListener('change', () => {
-  // Clear custom date inputs when period changes
-  startDateInput.value = '';
-  endDateInput.value = '';
-
-  // If member selected, update member details else leaderboard
-  if (memberSelect.value) {
-    renderMemberDetails(memberSelect.value);
-  } else {
-    renderLeaderboard();
-  }
+periodSelect.addEventListener("change", () => {
+  const member = memberSelect.value;
+  if (member) renderMemberDetails(member);
 });
 
-startDateInput.addEventListener('change', () => {
-  // If both dates entered, clear period select to custom mode
-  if (startDateInput.value || endDateInput.value) {
-    periodSelect.value = 'all';
-  }
-  if (memberSelect.value) {
-    renderMemberDetails(memberSelect.value);
-  } else {
-    renderLeaderboard();
-  }
+startDateInput.addEventListener("change", () => {
+  const member = memberSelect.value;
+  if (member) renderMemberDetails(member);
 });
 
-endDateInput.addEventListener('change', () => {
-  if (startDateInput.value || endDateInput.value) {
-    periodSelect.value = 'all';
-  }
-  if (memberSelect.value) {
-    renderMemberDetails(memberSelect.value);
-  } else {
-    renderLeaderboard();
-  }
+endDateInput.addEventListener("change", () => {
+  const member = memberSelect.value;
+  if (member) renderMemberDetails(member);
 });
 
-toggleMeetingNumbers.addEventListener('change', () => {
-  if (memberSelect.value) {
-    renderMemberDetails(memberSelect.value);
-  }
+toggleMeetingNumbers.addEventListener("change", () => {
+  const member = memberSelect.value;
+  if (member) renderMemberDetails(member);
 });
 
-showLeaderboardBtn.addEventListener('click', () => {
-  memberSelect.value = '';
-  startDateInput.value = '';
-  endDateInput.value = '';
-  periodSelect.value = 'all';
-  clearError();
-  showView(leaderboardView);
+showLeaderboardBtn.addEventListener("click", () => {
   renderLeaderboard();
+  top5ChartCanvas.style.display = "none";
+  memberDataDiv.innerHTML = "";
 });
 
-showChartBtn.addEventListener('click', () => {
-  memberSelect.value = '';
-  startDateInput.value = '';
-  endDateInput.value = '';
-  periodSelect.value = 'all';
-  clearError();
+showChartBtn.addEventListener("click", () => {
   renderChart();
 });
 
-clearFiltersBtn.addEventListener('click', () => {
-  memberSelect.value = '';
-  periodSelect.value = 'all';
-  startDateInput.value = '';
-  endDateInput.value = '';
-  toggleMeetingNumbers.checked = false;
-  clearError();
-  memberDataDiv.innerHTML = 'Select a member to view details.';
-  showView(leaderboardView);
-  renderLeaderboard();
+clearFiltersBtn.addEventListener("click", () => {
+  clearFilters();
 });
 
-// Initial fetch and render
-fetchData();
+// On load: fetch all data
+(async () => {
+  try {
+    await fetchAllSheets();
+  } catch (err) {
+    showError("Error loading data: " + (err.message || err));
+  }
+})();
