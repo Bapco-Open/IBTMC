@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Toastmasters Points Dashboard</title>
+  <style>
+    body {
+  font-family: "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f8f9fa;
+  color: #333;
+}
+
+header {
+  background-color: #0066a1;
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+header img {
+  max-height: 60px;
+}
+
+.controls {
+  padding: 20px;
+  text-align: center;
+}
+
+select {
+  font-size: 16px;
+  padding: 8px;
+  margin-left: 10px;
+}
+
+.loading {
+  text-align: center;
+  font-size: 18px;
+  margin: 20px;
+}
+
+.hidden {
+  display: none;
+}
+
+#memberDetails {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  margin-top: 20px;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: left;
+}
+
+th {
+  background: #0066a1;
+  color: white;
+}
+
+footer {
+  background: #003f5e;
+  color: white;
+  text-align: center;
+  padding: 10px;
+  margin-top: 40px;
+}
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://www.toastmasters.org/~/media/images/logos/branding%20logos/toastmasters%20logo%20color%20jpeg.ashx" alt="Toastmasters Logo">
+    <h1>Toastmasters Points Dashboard</h1>
+  </header>
+
+  <main>
+    <div class="controls">
+      <label for="memberSelect">Select Member:</label>
+      <select id="memberSelect">
+        <option>Loading...</option>
+      </select>
+    </div>
+
+    <div id="loading" class="loading">Loading data...</div>
+
+    <div id="memberDetails" class="hidden">
+      <h2 id="memberName"></h2>
+      <table id="detailsTable">
+        <thead>
+          <tr><th>Category</th><th>Total</th><th>Details</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; Toastmasters Club | Built with ❤️</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    const sheetLinks = {
+  "Role Taking": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=23380471&single=true&output=csv",
+  "Speeches": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=170161438&single=true&output=csv",
+  "Evaluations": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=335593996&single=true&output=csv",
+  "Level Completions": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1646576393&single=true&output=csv",
+  "Awards": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=302763050&single=true&output=csv",
+  "ExCom & Sub": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=710668362&single=true&output=csv",
+  "Table Topics": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=618267332&single=true&output=csv",
+  "Early Attendance": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1928408168&single=true&output=csv",
+  "Summary": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1556398249&single=true&output=csv"
+};
+
+const allData = {};
+let members = new Set();
+
+function fetchCSV(url) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(url, {
+      download: true,
+      complete: (result) => resolve(result.data),
+      error: reject
+    });
+  });
+}
+
+async function loadAllSheets() {
+  const sheetNames = Object.keys(sheetLinks);
+  for (const sheet of sheetNames) {
+    try {
+      const data = await fetchCSV(sheetLinks[sheet]);
+      allData[sheet] = data;
+      if (sheet === "Summary") {
+        for (let i = 3; i < data.length; i++) {
+          if (data[i][0]) members.add(data[i][0]);
+        }
+      }
+    } catch (err) {
+      console.error(`Error loading ${sheet}:`, err);
+    }
+  }
+}
+
+function populateDropdown() {
+  const dropdown = document.getElementById("memberSelect");
+  dropdown.innerHTML = `<option value="">-- Select Member --</option>`;
+  [...members].sort().forEach(name => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    dropdown.appendChild(option);
+  });
+}
+
+function showMemberDetails(name) {
+  document.getElementById("memberName").textContent = name;
+  const tbody = document.querySelector("#detailsTable tbody");
+  tbody.innerHTML = "";
+
+  Object.entries(allData).forEach(([sheetName, rows]) => {
+    for (let i = 3; i < rows.length; i++) {
+      if (rows[i][0] === name) {
+        const total = rows[i][1] || "0";
+        const details = rows[i].slice(2).filter(cell => cell && cell.trim() !== "").join(", ");
+        const row = `<tr><td>${sheetName}</td><td>${total}</td><td>${details || "-"}</td></tr>`;
+        tbody.innerHTML += row;
+        break;
+      }
+    }
+  });
+
+  document.getElementById("memberDetails").classList.remove("hidden");
+}
+
+async function init() {
+  document.getElementById("loading").style.display = "block";
+  await loadAllSheets();
+  populateDropdown();
+  document.getElementById("loading").style.display = "none";
+}
+
+document.getElementById("memberSelect").addEventListener("change", (e) => {
+  const selected = e.target.value;
+  if (selected) showMemberDetails(selected);
+  else document.getElementById("memberDetails").classList.add("hidden");
+});
+
+init();
+  </script>
+</body>
+</html>
