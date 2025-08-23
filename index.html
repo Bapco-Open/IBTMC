@@ -1,55 +1,141 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Toastmasters Points Tracker</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toastmasters Points Dashboard</title>
+
+  <!-- Toastmasters brand colors -->
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f7f9fb;
+      margin: 0;
+      padding: 0 20px 40px;
+      color: #333;
+    }
+    header {
+      background-color: #772432; /* Toastmasters maroon */
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+    }
+    header img {
+      height: 50px;
+      user-select: none;
+    }
+    header h1 {
+      font-weight: 700;
+      font-size: 1.8rem;
+      margin: 0;
+      flex-grow: 1;
+    }
+    select, input[type="date"], button {
+      margin: 10px 10px 10px 0;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1.5px solid #772432;
+      font-size: 1rem;
+      color: #772432;
+      background: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    select:hover, input[type="date"]:hover, button:hover {
+      background-color: #f0e6e6;
+    }
+    label {
+      font-weight: 600;
+      color: #772432;
+      user-select: none;
+    }
+    #memberData h2, #leaderboardView h2 {
+      color: #772432;
+      margin-top: 40px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 900px;
+      margin-bottom: 40px;
+      font-size: 0.95rem;
+      box-shadow: 0 0 8px #ddd;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #00587C;
+      color: white;
+    }
+    tbody tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: default;
+    }
+    /* Responsive */
+    @media (max-width: 700px) {
+      table {
+        font-size: 0.8rem;
+      }
+      header h1 {
+        font-size: 1.3rem;
+      }
+    }
+  </style>
+
+  <!-- Toastmasters logo from official source -->
+  <link rel="icon" href="https://cdn.toastmasters.org/wp-content/themes/tm-theme/library/assets/images/favicon.ico" />
+  
+  <!-- PapaParse -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-  <header class="tm-header">
-    <img src="logo.png" alt="Toastmasters Logo" class="tm-logo">
-    <h1>Toastmasters Club Points Tracker</h1>
+  <header>
+    <img src="https://cdn.toastmasters.org/wp-content/uploads/2016/05/toastmasters_logo.svg" alt="Toastmasters Logo" />
+    <h1>Toastmasters Points Dashboard</h1>
   </header>
 
-  <div class="container">
-    <div class="filters">
-      <label>Member:</label>
-      <select id="memberSelect">
-        <option value="">-- Select Member --</option>
-      </select>
+  <section>
+    <label for="memberSelect">Select Member:</label>
+    <select id="memberSelect">
+      <option value="">-- Select member --</option>
+    </select>
 
-      <label>Period:</label>
-      <select id="periodSelect">
-        <option value="all">All Time</option>
-        <option value="quarter">This Quarter</option>
-        <option value="month">This Month</option>
-        <option value="custom">Custom</option>
-      </select>
+    <label for="periodSelect">Filter by Period:</label>
+    <select id="periodSelect">
+      <option value="all">All Dates</option>
+      <option value="month">This Month</option>
+      <option value="quarter">This Quarter</option>
+      <option value="custom">Custom Range</option>
+    </select>
 
-      <div class="date-range">
-        <label>From:</label>
-        <input type="date" id="startDate">
-        <label>To:</label>
-        <input type="date" id="endDate">
-      </div>
+    <input type="date" id="startDate" style="display:none;" />
+    <input type="date" id="endDate" style="display:none;" />
 
-      <label>
-        <input type="checkbox" id="toggleMeetingNumbers"> Show Meeting Numbers
-      </label>
+    <label><input type="checkbox" id="toggleMeetingNumbers"> Show Meeting Numbers</label>
+  </section>
 
-      <button id="showLeaderboardBtn">🏆 Leaderboard</button>
-      <button id="showChartBtn">📊 Top 5 Chart</button>
-      <button id="clearFiltersBtn">🔄 Clear</button>
-    </div>
+  <section>
+    <button id="showLeaderboardBtn">Show Leaderboard</button>
+    <button id="showChartBtn">Show Top 5 Chart</button>
+    <button id="clearFiltersBtn">Clear Filters</button>
+  </section>
 
-    <div id="error" class="error"></div>
+  <main>
     <div id="memberData"></div>
-    <div id="leaderboardView"></div>
-    <canvas id="top5Chart" style="display: none;"></canvas>
-  </div>
+    <div id="leaderboardView" style="display:none;"></div>
+    <canvas id="top5Chart" style="display:none; max-width:600px; margin-top: 30px;"></canvas>
+  </main>
 
   <script src="script.js"></script>
 </body>
