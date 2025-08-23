@@ -1,44 +1,79 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Toastmasters Points Dashboard</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.1/tabletop.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="script.js" defer></script>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .hidden { display: none; }
+    select, input[type=date], button { margin: 5px; padding: 5px; }
+    table { border-collapse: collapse; width: 100%; max-width: 600px; margin: 10px 0; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #eee; }
+    .member-section { margin-bottom: 20px; }
+  </style>
 </head>
 <body>
+
   <h1>Toastmasters Points Dashboard</h1>
-  <div class="controls">
-    <label for="periodSelect">Period:</label>
+
+  <div>
+    <label for="memberSelect">Select Member:</label>
+    <select id="memberSelect">
+      <option value="">-- Choose --</option>
+    </select>
+  </div>
+
+  <div>
+    <label for="periodSelect">Filter by Period:</label>
     <select id="periodSelect">
-      <option value="all">All Time</option>
+      <option value="all" selected>All Time</option>
       <option value="month">This Month</option>
       <option value="quarter">This Quarter</option>
     </select>
 
-    <label>Start Date: <input type="date" id="startDate"></label>
-    <label>End Date: <input type="date" id="endDate"></label>
+    <label for="startDate">Start Date:</label>
+    <input type="date" id="startDate" />
 
-    <label for="memberSelect">Member:</label>
-    <select id="memberSelect"><option value="">-- Choose --</option></select>
-
-    <label><input type="checkbox" id="toggleMeetingNumbers"> Show Meeting Numbers</label>
-
-    <button id="showLeaderboard">Leaderboard</button>
-    <button id="showChart">Top 5 Chart</button>
+    <label for="endDate">End Date:</label>
+    <input type="date" id="endDate" />
   </div>
 
-  <div id="memberView" class="view">
-    <h2>Member Details</h2><div id="memberData"></div>
+  <div>
+    <input type="checkbox" id="toggleMeetingNumbers" />
+    <label for="toggleMeetingNumbers">Show Meeting Numbers and Points per Meeting</label>
   </div>
-  <div id="leaderboardView" class="view hidden">
-    <h2>Leaderboard</h2><div id="leaderboard"></div>
+
+  <div>
+    <button id="showLeaderboard">Show Leaderboard</button>
+    <button id="showChart">Show Top 5 Chart</button>
   </div>
-  <div id="chartView" class="view hidden">
-    <h2>Top 5 Members</h2><canvas id="topChart"></canvas>
+
+  <hr />
+
+  <div id="memberView" class="hidden">
+    <h2>Member Details</h2>
+    <div id="memberData"></div>
   </div>
+
+  <div id="leaderboardView" class="">
+    <h2>Leaderboard</h2>
+    <div id="leaderboard">Loading...</div>
+  </div>
+
+  <div id="chartView" class="hidden">
+    <h2>Top 5 Members Chart</h2>
+    <canvas id="topChart" width="600" height="400"></canvas>
+  </div>
+
+  <!-- Include Tabletop.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.4/tabletop.min.js"></script>
+
+  <!-- Include Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Your script.js content goes here -->
+  <script src="script.js"></script>
+
 </body>
 </html>
