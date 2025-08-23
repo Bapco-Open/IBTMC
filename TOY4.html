@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toastmasters Club – Points Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --tm-primary: #004165;
+      --tm-accent: #772432;
+      --tm-highlight: #f2df74;
+      --tm-bg: #f7f7f7;
+      --tm-text: #333;
+      --font-main: 'Open Sans', Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: var(--font-main);
+      color: var(--tm-text);
+      background: var(--tm-bg);
+      display: flex; flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: var(--tm-primary);
+      color: white;
+      padding: 1rem 2rem;
+      display: flex; align-items: center; gap: 1rem;
+      flex-wrap: wrap;
+    }
+    header img { height: 50px; }
+    header h1 {
+      margin: 0; font-size: 1.6rem; font-weight: bold;
+    }
+    main {
+      flex: 1;
+      padding: 1rem 2rem;
+      max-width: 1100px;
+      margin: auto;
+    }
+    .controls {
+      display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;
+      align-items: center;
+    }
+    .controls label { font-weight: bold; white-space: nowrap; }
+    .controls select, .controls input[type="date"] {
+      padding: 0.4rem 0.6rem; font-size: 1rem;
+      border: 1px solid var(--tm-accent);
+      border-radius: 4px;
+    }
+    .controls label.toggle {
+      display: flex; align-items: center; cursor: pointer; font-weight: bold;
+    }
+    .controls label.toggle input { margin-right: 0.5rem; }
+    section h2 {
+      border-bottom: 2px solid var(--tm-accent);
+      padding-bottom: 0.2rem;
+      font-size: 1.4rem;
+      margin-top: 1.5rem;
+    }
+    section.member-category {
+      margin-bottom: 2rem;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 0.8rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .table-controls {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;
+    }
+    .table-controls .filter-input {
+      flex: 1; min-width: 180px; padding: 0.4rem 0.6rem;
+      font-size: 1rem; border: 1px solid #ccc; border-radius: 4px;
+    }
+    .table-controls button {
+      background: var(--tm-accent); color: white;
+      padding: 0.4rem 1rem; border: none; border-radius: 4px;
+      font-size: 0.95rem; cursor: pointer;
+    }
+    .table-controls button:hover {
+      background: #5a1f2e;
+    }
+    .table-container { overflow-x: auto; }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 0.5rem;
+    }
+    th, td {
+      padding: 0.5rem 0.8rem; border: 1px solid #ccc;
+      font-size: 0.95rem; text-align: left;
+    }
+    th {
+      position: sticky; top: 0;
+      background: var(--tm-accent);
+      color: white; font-weight: bold;
+    }
+    tr:nth-child(even) { background: #fefefe; }
+    tr:hover { background: var(--tm-highlight); }
+    .no-data { font-style: italic; color: #666; }
+    .pagination {
+      margin-top: 0.5rem; display: flex; gap: 0.3rem;
+    }
+    .pagination button {
+      background: var(--tm-accent); color: white;
+      padding: 0.3rem 0.6rem; border: none; border-radius: 3px;
+      cursor: pointer;
+    }
+    .pagination button[disabled] {
+      background: #aaa; cursor: default;
+    }
+    #leaderboard ol {
+      padding-left: 1.2rem; font-size: 1rem;
+    }
+    #leaderboard canvas { max-width: 100%; margin-top: 1rem; }
+    footer {
+      padding: 1rem 2rem; background: var(--tm-primary);
+      color: white; text-align: center; font-size: 0.9rem;
+    }
+    @media (max-width: 600px) {
+      .controls { flex-direction: column; }
+      .table-controls { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/f/f3/Toastmasters_International_logo.svg"
+         alt="Toastmasters International Logo" />
+    <h1>Toastmasters Club Points Dashboard</h1>
+  </header>
+
+  <main>
+    <section class="controls">
+      <label>Member:
+        <select id="memberSelect" disabled><option>Loading...</option></select>
+      </label>
+      <label>From: <input type="date" id="startDate" disabled></label>
+      <label>To: <input type="date" id="endDate" disabled></label>
+      <label class="toggle"><input type="checkbox" id="toggleMeeting">Show Meeting Numbers</label>
+    </section>
+
+    <section id="memberDetailsSection">
+      <h2>Member Detailed Points</h2>
+      <div id="memberDetails"><p>Please select a member and date range.</p></div>
+      <button id="exportAllBtn" style="display:none; margin-top:0.5rem;">Export All</button>
+    </section>
+
+    <section id="leaderboardSection">
+      <h2>Leaderboard</h2>
+      <div id="leaderboard">Loading leaderboard...</div>
+      <canvas id="top5Chart" aria-label="Top 5 Members Chart"></canvas>
+    </section>
+  </main>
+
+  <footer>Powered by Toastmasters Club Dashboard</footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const csvUrls = {
+      "Role Taking":        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=23380471&single=true&output=csv",
+      "Speeches":           "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=170161438&single=true&output=csv",
+      "Evaluations":        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=335593996",
+      "Level Completions":  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1646576393",
+      "Awards":             "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=302763050",
+      "ExCom & Sub":        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=710668362",
+      "Table Topics":       "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=618267332",
+      "Early Attendance":   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1928408168&single=true&output=csv"
+    };
+
+    const allData={}, memberSet=new Set(), state={};
+
+    const escapeHtml = s => s ? s.replace(/[&<>"']/g,m=>( {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m] )) : '';
+    const capitalize = s => s.replace(/\b\w/g,c=>c.toUpperCase());
+    const parseD = s => { const d=new Date(s); return isNaN(d)?null:d; };
+
+    function ptsOf(cat,row) {
+      switch(cat) {
+        case "Role Taking": return 2;
+        case "Speeches": return 5;
+        case "Evaluations": return 3;
+        case "Level Completions":
+          return row["Level"] && row["Level"].includes("5") ? 10 : 5;
+        case "Awards": return 15;
+        case "ExCom & Sub": return 4;
+        case "Table Topics": return 2;
+        case "Early Attendance": return 1;
+        default:
+          const p = Number(row.points); return isNaN(p)?0:p;
+      }
+    }
+
+    function loadData() {
+      return Promise.all(Object.entries(csvUrls).map(([k,url]) =>
+        fetch(url).then(r=>r.ok?r.text():Promise.reject()).then(txt=>{
+          const parsed=Papa.parse(txt,{header:true,skipEmptyLines:true});
+          allData[k]=parsed.data;
+          parsed.data.forEach(r=>r.Name&&memberSet.add(r.Name.trim()));
+        }).catch(e=>{ allData[k]=[]; console.error(e); })
+      ));
+    }
+
+    function populateMembers() {
+      const sel=document.getElementById('memberSelect');
+      sel.innerHTML='<option disabled selected>-- Choose Member --</option>';
+      Array.from(memberSet).sort().forEach(m=>sel.innerHTML+=`<option>${escapeHtml(m)}</option>`);
+      sel.disabled=false;
+    }
+
+    function filterRows(cat,member,from,to) {
+      return allData[cat].filter(r=>{
+        if(!r.Name||r.Name.trim()!==member) return false;
+        const dt=parseD(r['Date']||r['Meeting Date']||r['date']);
+        if(from && (!dt||dt<from)) return false;
+        if(to && (!dt||dt>to)) return false;
+        return true;
+      });
+    }
+
+    function paginate(arr,p){return arr.slice((p-1)*10,p*10);}
+
+    function makeTable(cat,rows,showMeet,pg=1) {
+      if(!rows.length) return '<p class="no-data">No records.</p>';
+      const cols=Object.keys(rows[0]).filter(c=>showMeet||!/meeting\s*(no|number)/i.test(c));
+      const rowsPg=paginate(rows,pg);
+      const total=PAGS=Math.ceil(rows.length/10);
+      let html='<table><thead><tr>'+cols.map(c=>`<th>${escapeHtml(capitalize(c))}</th>`).join('')+'</tr></thead><tbody>';
+      rowsPg.forEach(r=>{html+='<tr>'+cols.map(c=>`<td>${escapeHtml(r[c]||'')}</td>`).join('')+'</tr>'});
+      html+='</tbody></table><div class="pagination">';
+      html+=`<button data-cat="${cat}" data-page="1" ${pg===1?'disabled':''}>«</button>`;
+      html+=`<button data-cat="${cat}" data-page="${pg-1}" ${pg===1?'disabled':''}>‹</button>`;
+      for(let i=Math.max(1,pg-2);i<=Math.min(total,pg+2);i++){
+        html+=`<button data-cat="${cat}" data-page="${i}" ${i===pg?'disabled':''}>${i}</button>`;
+      }
+      html+=`<button data-cat="${cat}" data-page="${pg+1}" ${pg===total?'disabled':''}>›</button>`;
+      html+=`<button data-cat="${cat}" data-page="${total}" ${pg===total?'disabled':''}>»</button>`;
+      html+='</div>';
+      return html;
+    }
+
+    function renderDetails() {
+      const member=document.getElementById('memberSelect').value;
+      const from=parseD(document.getElementById('startDate').value);
+      const to=parseD(document.getElementById('endDate').value);
+      const showMeet=document.getElementById('toggleMeeting').checked;
+      const container=document.getElementById('memberDetails');
+      container.innerHTML='';
+      document.getElementById('exportAllBtn').style.display='inline-block';
+      Object.entries(allData).forEach(([cat,_])=>{
+        const rows=filterRows(cat,member,from,to);
+        state[cat]={rows,page:1,showMeet,filter:''};
+        container.innerHTML+=`
+          <section class="member-category"><h3>${capitalize(cat)}</h3>
+            <div class="table-controls">
+              <input class="filter-input" placeholder="Filter rows..." data-cat="${cat}">
+              <button data-cat="${cat}" class="export-btn">Export CSV</button>
+            </div>
+            <div id="tbl-${cat}">${makeTable(cat,rows,showMeet)}</div>
+          </section>`;
+      });
+      attachControls();
+    }
+
+    function attachControls() {
+      document.querySelectorAll('.filter-input').forEach(inp=>{
+        inp.oninput=e=>{
+          const cat=e.target.dataset.cat;
+          state[cat].filter=e.target.value.toLowerCase();
+          state[cat].page=1; renderCat(cat);
+        };
+      });
+      document.querySelectorAll('.pagination button').forEach(b=>{
+        b.onclick=e=>{
+          const cat=b.dataset.cat;
+          state[cat].page=Number(b.dataset.page);
+          renderCat(cat);
+        };
+      });
+      document.querySelectorAll('.export-btn').forEach(b=>{
+        b.onclick=e=>{
+          const cat=b.dataset.cat;
+          exportCat(cat);
+        };
+      });
+    }
+
+    function renderCat(cat) {
+      let rs=state[cat].rows;
+      if(state[cat].filter)
+        rs=rs.filter(r=>Object.values(r).some(v=>v && v.toString().toLowerCase().includes(state[cat].filter)));
+      state[cat].filtered=rs;
+      document.getElementById(`tbl-${cat}`).innerHTML=makeTable(cat,rs,state[cat].showMeet,state[cat].page);
+      attachControls();
+    }
+
+    function exportCat(cat) {
+      const rs=(state[cat].filtered||state[cat].rows);
+      if(!rs||!rs.length) return alert('No records');
+      const csv=Papa.unparse(rs);
+      const blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');
+      a.href=URL.createObjectURL(blob); a.download=`${cat.replace(/\s+/g,'_')}.csv`;a.click();
+    }
+
+    function exportAll() {
+      let all=[];
+      Object.entries(state).forEach(([cat,s])=>{
+        (s.filtered||s.rows).forEach(r=>all.push({Category:cat,...r}));
+      });
+      if(!all.length) return alert('No data');
+      const csv=Papa.unparse(all);
+      const blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');
+      a.href=URL.createObjectURL(blob); a.download='All_Member_Data.csv';a.click();
+    }
+
+    function calcLeaderboard() {
+      const from=parseD(document.getElementById('startDate').value);
+      const to=parseD(document.getElementById('endDate').value);
+      const tot={};
+      Object.entries(allData).forEach(([cat,_])=>{
+        allData[cat].forEach(r=>{
+          const d=parseD(r['Date']||r['Meeting Date']||'');
+          if((!from||d>=from)&&(!to||d<=to)&&r.points&&r.Name){
+            const n=r.Name.trim();
+            tot[n]=(tot[n]||0)+ptsOf(cat,r);
+          }
+        });
+      });
+      const sorted=Object.entries(tot).sort((a,b)=>b[1]-a[1]);
+      const lb=document.getElementById('leaderboard');
+      if(!sorted.length) lb.innerHTML='<p class="no-data">No data</p>';
+      else lb.innerHTML='<ol>'+sorted.map(e=>`<li>${escapeHtml(e[0])}: ${e[1]}</li>`).join('')+'</ol>';
+      const ctx=document.getElementById('top5Chart').getContext('2d');
+      if(window.chart) window.chart.destroy();
+      const top5=sorted.slice(0,5);
+      window.chart=new Chart(ctx,{
+        type:'bar',
+        data:{labels:top5.map(e=>e[0]),datasets:[{data:top5.map(e=>e[1]),backgroundColor:'rgba(119,36,50,0.7)'}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded',()=>{
+      loadData().then(()=>{
+        populateMembers();
+        ['memberSelect','startDate','endDate'].forEach(id=>document.getElementById(id).disabled=false);
+        document.getElementById('exportAllBtn').onclick=exportAll;
+        ['memberSelect','startDate','endDate','toggleMeeting'].forEach(id=>{
+          document.getElementById(id).addEventListener('input',()=>{
+            renderDetails();calcLeaderboard();
+          });
+        });
+        calcLeaderboard();
+      });
+    });
+  </script>
+</body>
+</html>
