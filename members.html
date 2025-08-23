@@ -3,16 +3,31 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Member Details Viewer</title>
+<title>Member Details Viewer with Search & Export</title>
 <style>
   body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; }
-  select { padding: 8px; font-size: 16px; width: 100%; max-width: 400px; }
+  select, input[type="text"], button {
+    padding: 8px; font-size: 16px; margin-top: 5px; margin-bottom: 15px; 
+  }
   #details { margin-top: 20px; }
   table { border-collapse: collapse; width: 100%; margin-top: 10px; }
   th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
   th { background: #f0f0f0; }
   h2, h3 { margin-top: 30px; }
   #loading { font-style: italic; color: #666; margin-top: 10px; }
+  .filter-container { margin-bottom: 10px; }
+  .filter-container input {
+    width: 300px;
+    max-width: 90vw;
+  }
+  .table-controls {
+    margin-bottom: 15px;
+  }
+  .no-data {
+    font-style: italic;
+    color: #999;
+    margin-top: 10px;
+  }
 </style>
 </head>
 <body>
@@ -124,37 +139,50 @@ function clearDetails() {
   document.getElementById("details").innerHTML = "";
 }
 
+// Display all matching rows with search and export controls per sheet
 function displayMemberDetails(name) {
   const detailsDiv = document.getElementById("details");
-  detailsDiv.innerHTML = `<h2>Details for ${name}</h2>`;
+  detailsDiv.innerHTML = `<h2>Details for ${escapeHtml(name)}</h2>`;
   let foundAny = false;
 
   for (const [category, data] of Object.entries(allData)) {
     const matchedRows = data.filter(row => row["Name"] && row["Name"].trim() === name);
     if (matchedRows.length > 0) {
       foundAny = true;
-      detailsDiv.innerHTML += `<h3>${capitalizeWords(category)}</h3>`;
-      detailsDiv.innerHTML += generateTableHTML(matchedRows);
+      detailsDiv.innerHTML += `
+        <section id="section-${category}">
+          <h3>${capitalizeWords(category)}</h3>
+          <div class="table-controls">
+            <input type="text" placeholder="Filter ${capitalizeWords(category)}..." class="filter-input" data-category="${category}">
+            <button class="clear-filter" data-category="${category}">Clear Filter</button>
+            <button class="export-btn" data-category="${category}">Export to CSV</button>
+          </div>
+          <div class="table-container" data-category="${category}">
+            ${generateTableHTML(matchedRows)}
+          </div>
+        </section>
+      `;
     }
   }
 
   if (!foundAny) {
-    detailsDiv.innerHTML += `<p>No records found for this member.</p>`;
+    detailsDiv.innerHTML += `<p class="no-data">No records found for this member.</p>`;
   }
+
+  setupFilteringAndExport(name);
 }
 
 function generateTableHTML(dataArray) {
-  if (dataArray.length === 0) return "<p>No data</p>";
+  if (dataArray.length === 0) return "<p class='no-data'>No data</p>";
   const columns = Object.keys(dataArray[0]);
   let html = "<table><thead><tr>";
   columns.forEach(col => {
-    html += `<th>${col}</th>`;
+    html += `<th>${escapeHtml(col)}</th>`;
   });
   html += "</tr></thead><tbody>";
   dataArray.forEach(row => {
     html += "<tr>";
     columns.forEach(col => {
-      // Escape HTML special chars for safety
       const val = row[col] || "";
       html += `<td>${escapeHtml(val)}</td>`;
     });
@@ -178,6 +206,106 @@ function capitalizeWords(str) {
   return str.replace(/([A-Z])/g, " $1")
             .replace(/^./, s => s.toUpperCase())
             .trim();
+}
+
+function setupFilteringAndExport(memberName) {
+  // Filtering
+  const filters = document.querySelectorAll(".filter-input");
+  filters.forEach(input => {
+    input.addEventListener("input", e => {
+      const category = e.target.dataset.category;
+      const filterVal = e.target.value.toLowerCase();
+      const tableContainer = document.querySelector(`.table-container[data-category="${category}"]`);
+      if (!tableContainer) return;
+
+      const rows = tableContainer.querySelectorAll("tbody tr");
+      rows.forEach(row => {
+        const rowText = row.textContent.toLowerCase();
+        if (rowText.indexOf(filterVal) === -1) {
+          row.style.display = "none";
+        } else {
+          row.style.display = "";
+        }
+      });
+    });
+  });
+
+  // Clear filter buttons
+  const clearBtns = document.querySelectorAll(".clear-filter");
+  clearBtns.forEach(btn => {
+    btn.addEventListener("click", e => {
+      const category = e.target.dataset.category;
+      const input = document.querySelector(`.filter-input[data-category="${category}"]`);
+      if (input) {
+        input.value = "";
+        input.dispatchEvent(new Event('input')); // trigger filtering to reset
+      }
+    });
+  });
+
+  // Export buttons
+  const exportBtns = document.querySelectorAll(".export-btn");
+  exportBtns.forEach(btn => {
+    btn.addEventListener("click", e => {
+      const category = e.target.dataset.category;
+      exportFilteredTableToCSV(category, memberName);
+    });
+  });
+}
+
+function exportFilteredTableToCSV(category, memberName) {
+  const tableContainer = document.querySelector(`.table-container[data-category="${category}"]`);
+  if (!tableContainer) return;
+
+  const rows = Array.from(tableContainer.querySelectorAll("tbody tr"))
+    .filter(row => row.style.display !== "none");
+
+  if (rows.length === 0) {
+    alert("No visible rows to export.");
+    return;
+  }
+
+  const headers = Array.from(tableContainer.querySelectorAll("thead th")).map(th => th.textContent);
+  const csvRows = [];
+  csvRows.push(headers.map(csvEscape).join(","));
+
+  rows.forEach(row => {
+    const cells = Array.from(row.querySelectorAll("td"));
+    const rowData = cells.map(cell => csvEscape(cell.textContent));
+    csvRows.push(rowData.join(","));
+  });
+
+  const csvContent = csvRows.join("\r\n");
+  const filename = `${memberName}_${category}.csv`.replace(/\s+/g, "_");
+
+  downloadCSV(csvContent, filename);
+}
+
+function csvEscape(text) {
+  if (text == null) return "";
+  // Escape quotes by doubling them and wrap text in quotes if it contains comma, newline or quotes
+  if (text.search(/("|,|\n)/g) >= 0) {
+    text = '"' + text.replace(/"/g, '""') + '"';
+  }
+  return text;
+}
+
+function downloadCSV(content, filename) {
+  const blob = new Blob([content], {type: 'text/csv;charset=utf-8;'});
+  if (navigator.msSaveBlob) { // IE 10+
+    navigator.msSaveBlob(blob, filename);
+  } else {
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
 }
 
 window.addEventListener("DOMContentLoaded", init);
