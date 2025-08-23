@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Toastmasters Club Points Dashboard</title>
+<style>
+  body { font-family: 'Open Sans', sans-serif; margin: 0; padding: 1rem; background: #f9f9f9; }
+  header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+  .logo { height: 50px; }
+  h1 { margin: 0; font-weight: 700; color: #b0171f; }
+  label { margin-right: 0.5rem; }
+  select, input[type=date] { margin-right: 1rem; padding: 0.3rem 0.5rem; }
+  section { margin-bottom: 2rem; background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 0 6px rgba(0,0,0,0.1);}
+  #leaderboard table { width: 100%; border-collapse: collapse; }
+  #leaderboard th, #leaderboard td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; }
+  #leaderboard th { background: #b0171f; color: white; }
+  .member-compare { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .member-box { background: #fff5f6; padding: 1rem; border-radius: 6px; flex: 1 1 300px; }
+  canvas { max-width: 100%; height: auto; }
+</style>
+
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+<body>
+
+<header>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Toastmasters_International_logo.svg/2560px-Toastmasters_International_logo.svg.png" alt="Toastmasters Logo" class="logo" />
+  <h1>Toastmasters Club Points Dashboard</h1>
+</header>
+
+<section class="controls">
+  <label for="memberSelect">Select Members (Ctrl+Click for multiple):</label>
+  <select id="memberSelect" multiple size="6" style="min-width: 250px;"></select>
+
+  <label for="startDate">From:</label>
+  <input type="date" id="startDate" />
+
+  <label for="endDate">To:</label>
+  <input type="date" id="endDate" />
+</section>
+
+<section id="leaderboardSection">
+  <h2>Leaderboard</h2>
+  <div id="leaderboard"><em>Loading data...</em></div>
+  <canvas id="top5Chart" width="600" height="300"></canvas>
+</section>
+
+<section id="memberDetailsSection">
+  <h2>Member Points Breakdown</h2>
+  <div id="memberDetails">
+    <p>Select one or more members above to see their detailed points.</p>
+  </div>
+</section>
+
+<footer style="margin-top:2rem; text-align:center; color:#666;">
+  <p>Powered by Toastmasters Club Dashboard</p>
+</footer>
+
+<script>
+(async () => {
+  // CSV URLs from you
+  const csvUrls = {
+    roleTaking: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=23380471&single=true&output=csv",
+    speeches: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=170161438&single=true&output=csv",
+    evaluations: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=335593996&single=true&output=csv",
+    levelCompletions: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1646576393&single=true&output=csv",
+    awards: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=302763050&single=true&output=csv",
+    excomSub: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=710668362&single=true&output=csv",
+    tableTopics: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=618267332&single=true&output=csv",
+    earlyAttendance: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1928408168&single=true&output=csv",
+    lastMinuteRoles: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=10890228&single=true&output=csv",
+  };
+
+  // Helper: fetch and parse CSV to array of objects
+  async function fetchCSV(url) {
+    return new Promise((resolve, reject) => {
+      Papa.parse(url, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => resolve(results.data),
+        error: (err) => reject(err),
+      });
+    });
+  }
+
+  // Load all CSV data concurrently
+  const [
+    roleTakingData,
+    speechesData,
+    evaluationsData,
+    levelCompletionsData,
+    awardsData,
+    excomSubData,
+    tableTopicsData,
+    earlyAttendanceData,
+    lastMinuteRolesData,
+  ] = await Promise.all([
+    fetchCSV(csvUrls.roleTaking),
+    fetchCSV(csvUrls.speeches),
+    fetchCSV(csvUrls.evaluations),
+    fetchCSV(csvUrls.levelCompletions),
+    fetchCSV(csvUrls.awards),
+    fetchCSV(csvUrls.excomSub),
+    fetchCSV(csvUrls.tableTopics),
+    fetchCSV(csvUrls.earlyAttendance),
+    fetchCSV(csvUrls.lastMinuteRoles),
+  ]);
+
+  // We'll parse dates uniformly and clean names
+  function parseDate(dateStr) {
+    // Try ISO format first
+    let d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d;
+  }
+
+  // Normalize member names (trim + lowercase)
+  function normName(name) {
+    return (name || "").trim().toLowerCase();
+  }
+
+  // === Define the points system (simplified, extend later) ===
+  // Note: You can adjust this dictionary if needed.
+  const pointsScheme = {
+    earlyAttendance: {
+      "Present before meeting": 1,
+      "Present within first 5 minutes": 0.5,
+      "Present after 5 minutes": 0,
+    },
+    speeches: 3, // per prepared speech
+    roleTaking: {
+      MC: 3,
+      GE: 2,
+      TTM: 2,
+      Timer: 1,
+      "Ah Counter": 1,
+      Grammarian: 1,
+      Listener: 1,
+      Evaluator: 2,
+      "Evaluator's Evaluator": 1,
+      "Last Minute": 1, // bonus if last minute role
+      // Default role fallback?
+    },
+    awards: {
+      bestSpeaker: 2,
+      bestEvaluator: 1,
+      bestTT: 1,
+      bestRoleTaker: 2,
+    },
+    excom: {
+      clubOfficer: 12, // per year
+      areaDirector: 17,
+      divisionDirector: 22,
+      clubGrowthDirector: 27,
+      programQualityDirector: 32,
+      districtDirector: 37,
+      teamMember: 6,
+      subcommitteeMember: 6,
+    },
+    tableTopics: 1, // per participation
+  };
+
+  // We'll create a map of members and accumulate points and details
+  const members = {};
+
+  function addMember(name) {
+    const key = normName(name);
+    if (!key) return null;
+    if (!members[key]) {
+      members[key] = {
+        displayName: name.trim(),
+        points: 0,
+        details: {
+          earlyAttendance: 0,
+          speeches: 0,
+          roles: 0,
+          evaluations: 0,
+          awards: 0,
+          excom: 0,
+          tableTopics: 0,
+          lastMinuteBonus: 0,
+        },
+      };
+    }
+    return members[key];
+  }
+
+  // Process Early Attendance
+  earlyAttendanceData.forEach((row) => {
+    const name = row["Member"] || row["Name"] || row["Name/Member"];
+    const timing = row["Attendance"] || row["Timing"] || row["Early Attendance"];
+    if (!name || !timing) return;
+    const member = addMember(name);
+    if (!member) return;
+
+    let pts = 0;
+    if (timing.toLowerCase().includes("before")) pts = pointsScheme.earlyAttendance["Present before meeting"];
+    else if (timing.toLowerCase().includes("first 5")) pts = pointsScheme.earlyAttendance["Present within first 5 minutes"];
+    else pts = 0;
+    member.details.earlyAttendance += pts;
+    member.points += pts;
+  });
+
+  // Process Speeches
+  speechesData.forEach((row) => {
+    const name = row["Member"] || row["Speaker"] || row["Name"];
+    if (!name) return;
+    const member = addMember(name);
+    if (!member) return;
+
+    // You can customize based on speech type if available
+    const speechType = row["Speech Type"] || "";
+    // Add 3 points per speech, or customize if needed
+    member.details.speeches += pointsScheme.speeches;
+    member.points += pointsScheme.speeches;
+  });
+
+  // Process Role Taking
+  roleTakingData.forEach((row) => {
+    const name = row["Member"] || row["Name"] || row["Role Taker"];
+    const role = row["Role"] || "";
+    if (!name || !role) return;
+    const member = addMember(name);
+    if (!member) return;
+
+    let basePoints = 0;
+    let roleKey = role.trim();
+
+    // Map roles to points from scheme
+    switch (roleKey.toLowerCase()) {
+      case "mc": basePoints = pointsScheme.roleTaking.MC; break;
+      case "ge": basePoints = pointsScheme.roleTaking.GE; break;
+      case "ttm": basePoints = pointsScheme.roleTaking.TTM; break;
+      case "timer": basePoints = pointsScheme.roleTaking.Timer; break;
+      case "ah counter": basePoints = pointsScheme.roleTaking["Ah Counter"]; break;
+      case "grammarian": basePoints = pointsScheme.roleTaking.Grammarian; break;
+      case "listener": basePoints = pointsScheme.roleTaking.Listener; break;
+      case "evaluator": basePoints = pointsScheme.roleTaking.Evaluator; break;
+      case "evaluator's evaluator": basePoints = pointsScheme.roleTaking["Evaluator's Evaluator"]; break;
+      default: basePoints = 0;
+    }
+
+    member.details.roles += basePoints;
+    member.points += basePoints;
+
+    // Check for last minute bonus
+    const lastMinute = lastMinuteRolesData.find(
+      (lm) => normName(lm["Name"]) === normName(name) && normName(lm["Role"]) === normName(role)
+    );
+    if (lastMinute) {
+      member.details.lastMinuteBonus += pointsScheme.roleTaking["Last Minute"];
+      member.points += pointsScheme.roleTaking["Last Minute"];
+    }
+  });
+
+  // Process Evaluations
+  evaluationsData.forEach((row) => {
+    const name = row["Evaluator"] || row["Name"];
+    if (!name) return;
+    const member = addMember(name);
+    if (!member) return;
+
+    // Add 2 points per evaluation (based on your updated points scheme)
+    member.details.evaluations += 2;
+    member.points += 2;
+  });
+
+  // Process Awards (simplified)
+  awardsData.forEach((row) => {
+    const name = row["Member"] || row["Name"];
+    if (!name) return;
+    const awardType = row["Award"] || "";
+    const member = addMember(name);
+    if (!member) return;
+
+    // Map award types to points
+</script>
+
+</body>
+</html>
