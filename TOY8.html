@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Toastmasters Club Points Dashboard</title>
+<style>
+  body { font-family: 'Open Sans', sans-serif; margin: 20px; background: #f7f7f7; color: #333; }
+  header { display: flex; align-items: center; margin-bottom: 20px; }
+  .logo { height: 60px; margin-right: 20px; }
+  h1 { font-weight: 700; }
+  main { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
+  section { margin-bottom: 30px; }
+  label { margin-right: 10px; font-weight: 600; }
+  select, input[type=date] { margin-right: 20px; padding: 5px 10px; font-size: 1em; }
+  table { border-collapse: collapse; width: 100%; max-width: 700px; }
+  th, td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
+  th { background-color: #5c2d91; color: #fff; }
+  tbody tr:nth-child(even) { background: #f2f2f2; }
+  footer { text-align: center; margin-top: 30px; font-size: 0.9em; color: #666; }
+  .toggle-label { cursor: pointer; }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+</head>
+<body>
+<header>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Toastmasters_International_logo.svg/2560px-Toastmasters_International_logo.svg.png" alt="Toastmasters Logo" class="logo" />
+  <h1>Toastmasters Club Points Dashboard</h1>
+</header>
+
+<main>
+  <section class="controls">
+    <label for="memberSelect">Select Member:</label>
+    <select id="memberSelect">
+      <option value="" disabled selected>-- Choose Member --</option>
+    </select>
+
+    <label for="startDate">From:</label>
+    <input type="date" id="startDate" />
+
+    <label for="endDate">To:</label>
+    <input type="date" id="endDate" />
+  </section>
+
+  <section id="memberDetailsSection">
+    <h2>Member Detailed Points</h2>
+    <div id="memberDetails">
+      <p>Please select a member and date range above.</p>
+    </div>
+  </section>
+
+  <section id="leaderboardSection">
+    <h2>Leaderboard</h2>
+    <div id="leaderboard"></div>
+    <canvas id="top5Chart" width="600" height="300"></canvas>
+  </section>
+</main>
+
+<footer>
+  <p>Powered by Toastmasters Club Dashboard</p>
+</footer>
+
+<script defer>
+(async function() {
+  const DATA_SOURCES = {
+    roleTaking: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=23380471&single=true&output=csv',
+    speeches: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=170161438&single=true&output=csv',
+    evaluations: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=335593996&single=true&output=csv',
+    levelCompletions: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1646576393&single=true&output=csv',
+    awards: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=302763050&single=true&output=csv',
+    excom: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=710668362&single=true&output=csv',
+    tableTopics: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=618267332&single=true&output=csv',
+    earlyAttendance: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1928408168&single=true&output=csv',
+    summary: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1556398249&single=true&output=csv',
+    total: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1939085341&single=true&output=csv',
+    attendance: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1192815434&single=true&output=csv',
+    lastMinuteRoles: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=10890228&single=true&output=csv'
+  };
+
+  // Data holders
+  let data = {};
+  const membersSet = new Set();
+
+  // Helper parse date safely
+  function parseDate(dateStr) {
+    if (!dateStr) return null;
+    let d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return d;
+  }
+
+  // Fetch and parse CSV by URL
+  async function fetchCSV(url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const text = await response.text();
+      return Papa.parse(text, {header:true, skipEmptyLines:true}).data;
+    } catch (err) {
+      console.error('Failed to fetch CSV:', url, err);
+      return [];
+    }
+  }
+
+  async function fetchAllData() {
+    for (const [key, url] of Object.entries(DATA_SOURCES)) {
+      data[key] = await fetchCSV(url);
+    }
+  }
+
+  // Aggregate all members from all data
+  function gatherMembers() {
+    // We'll check all datasets that have "Member" or similar column
+    const keysWithMembers = ['roleTaking', 'speeches', 'evaluations', 'awards', 'excom', 'tableTopics', 'earlyAttendance', 'attendance', 'lastMinuteRoles', 'levelCompletions'];
+    keysWithMembers.forEach(key => {
+      if (!data[key]) return;
+      data[key].forEach(row => {
+        if (row.Member) membersSet.add(row.Member.trim());
+        else if (row.Name) membersSet.add(row.Name.trim());
+        else if (row['Role Taker']) membersSet.add(row['Role Taker'].trim());
+      });
+    });
+  }
+
+  // Calculate points per member per category
+  // Returns object { totalPoints, breakdown: { category: points } }
+  function calculateMemberPoints(member, startDate, endDate) {
+    // Helpers to filter date range
+    function inRange(dateStr) {
+      const d = parseDate(dateStr);
+      if (!d) return false;
+      if (startDate && d < startDate) return false;
+      if (endDate && d > endDate) return false;
+      return true;
+    }
+
+    // Initialize breakdown
+    const breakdown = {
+      'Early Attendance': 0,
+      'Role Taking': 0,
+      'Last Minute Role': 0,
+      'Speeches': 0,
+      'Evaluations': 0,
+      'Table Topics': 0,
+      'Awards': 0,
+      'Club Officer': 0,
+      'Subcommittees': 0,
+      'Contests': 0,
+      'Levels & DTMs': 0,
+      'Attendance %': 0,
+      'Arabic Speech Bonus': 0
+    };
+
+    // --- Early Attendance ---
+    // +0.25 for attendance, +0.5 if <6pm, +1 if <5:45pm, +2 if <5:30pm
+    if (data.earlyAttendance) {
+      data.earlyAttendance.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date)) {
+          const timeStr = row['Time'];
+          let points = 0.25;
+          if (timeStr) {
+            // Parse time e.g. "17:15"
+            const [h,m] = timeStr.split(':').map(Number);
+            if (h < 17 || (h === 17 && m <= 30)) points += 2 - 0.25; // <5:30pm total 2
+            else if (h < 17 || (h === 17 && m <= 45)) points += 1 - 0.25; // <5:45pm total 1
+            else if (h < 18) points += 0.5 - 0.25; // <6pm total 0.75
+          }
+          breakdown['Early Attendance'] += points;
+        }
+      });
+    }
+
+    // --- Role Taking ---
+    // +1 point per role taken, +1 extra if last minute role (data.lastMinuteRoles)
+    if (data.roleTaking) {
+      data.roleTaking.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date)) {
+          breakdown['Role Taking'] += 1;
+        }
+      });
+    }
+    if (data.lastMinuteRoles) {
+      data.lastMinuteRoles.forEach(row => {
+        if (row['Role Taker']?.trim() === member && inRange(row.Date)) {
+          breakdown['Last Minute Role'] += 1;
+        }
+      });
+    }
+
+    // --- Speeches ---
+    // +3 points per speech, +1 extra if speech done in Arabic (Bonus)
+    if (data.speeches) {
+      data.speeches.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date)) {
+          breakdown['Speeches'] += 3;
+          if (row.Language && row.Language.toLowerCase().includes('arabic')) {
+            breakdown['Arabic Speech Bonus'] += 1;
+          }
+        }
+      });
+    }
+
+    // --- Evaluations ---
+    // +2 points per evaluation
+    if (data.evaluations) {
+      data.evaluations.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date)) {
+          breakdown['Evaluations'] += 2;
+        }
+      });
+    }
+
+    // --- Table Topics ---
+    // +1 point per Table Topic speech
+    if (data.tableTopics) {
+      data.tableTopics.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date)) {
+          breakdown['Table Topics'] += 1;
+        }
+      });
+    }
+
+    // --- Awards ---
+    // Best Speaker +3, Best Evaluator +3, Best Table Topics +2, Best Role Taker +2
+    if (data.awards) {
+      data.awards.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date)) {
+          if (row.Award) {
+            const award = row.Award.toLowerCase();
+            if (award.includes('best speaker')) breakdown['Awards'] += 3;
+            else if (award.includes('best evaluator')) breakdown['Awards'] += 3;
+            else if (award.includes('best table topics')) breakdown['Awards'] += 2;
+            else if (award.includes('best role taker')) breakdown['Awards'] += 2;
+          }
+        }
+      });
+    }
+
+    // --- Club Officer & Subcommittees ---
+    // Points prorated yearly: Club Officer +5, Subcommittee +3 per year fraction
+    // Calculate fraction of year served within date range
+    function yearFraction(start, end) {
+      if (!start || !end) return 1;
+      const yearStart = new Date(start.getFullYear(), 0, 1);
+      const yearEnd = new Date(start.getFullYear()+1, 0, 1);
+      const yearLength = yearEnd - yearStart;
+      const servedStart = start < yearStart ? yearStart : start;
+      const servedEnd = end > yearEnd ? yearEnd : end;
+      const fraction = (servedEnd - servedStart) / yearLength;
+      return Math.max(0, Math.min(1, fraction));
+    }
+    if (data.excom) {
+      data.excom.forEach(row => {
+        if (row.Member?.trim() === member) {
+          const roleStart = parseDate(row['Start Date']);
+          const roleEnd = parseDate(row['End Date']) || new Date();
+          if (startDate && roleEnd < startDate) return;
+          if (endDate && roleStart > endDate) return;
+          const servedStart = startDate && roleStart < startDate ? startDate : roleStart;
+          const servedEnd = endDate && roleEnd > endDate ? endDate : roleEnd;
+          const fraction = yearFraction(servedStart, servedEnd);
+          if (row.Role?.toLowerCase().includes('officer')) breakdown['Club Officer'] += 5 * fraction;
+          else breakdown['Subcommittees'] += 3 * fraction;
+        }
+      });
+    }
+
+    // --- Contests ---
+    // +5 points per contest participation, +10 if winner
+    if (data.summary) {
+      data.summary.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date)) {
+          if (row.Contest && row.Participation?.toLowerCase() === 'yes') {
+            breakdown['Contests'] += 5;
+            if (row.Result && row.Result.toLowerCase().includes('winner')) {
+              breakdown['Contests'] += 10;
+            }
+          }
+        }
+      });
+    }
+
+    // --- Levels & DTMs ---
+    // +10 points per level completed, +50 points for DTM
+    if (data.levelCompletions) {
+      data.levelCompletions.forEach(row => {
+        if (row.Member?.trim() === member && inRange(row.Date)) {
+          const level = row.Level?.toLowerCase();
+          if (!level) return;
+          if (level.includes('dtm')) breakdown['Levels & DTMs'] += 50;
+          else breakdown['Levels & DTMs'] += 10;
+        }
+      });
+    }
+
+    // --- Attendance % ---
+    // +3 points for attendance over 75% annually (check attendance records)
+    if (data.attendance) {
+      // Count attended meetings in range
+      const meetings = new Set();
+      let attendedCount = 0;
+      data.attendance.forEach(row => {
+        if (row.Member?.trim() === member) {
+          if (inRange(row.Date)) {
+            meetings.add(row.Date);
+            if (row.Present && row.Present.toLowerCase() === 'yes') {
+              attendedCount++;
+            }
+          }
+        }
+      });
+      const totalMeetings = meetings.size || 1;
+      const attendancePercent = attendedCount / totalMeetings;
+      if (attendancePercent > 0.75) {
+        breakdown['Attendance %'] += 3;
+      }
+    }
+
+    // Sum all breakdown points
+    let totalPoints = 0;
+    for (const val of Object.values(breakdown)) totalPoints += val;
+
+    return { totalPoints, breakdown };
+  }
+
+  // Populate member dropdown
+  function populateMemberSelect() {
+    const select = document.getElementById('memberSelect');
+    select.innerHTML = '<option value="" disabled selected>-- Choose Member --</option>';
+    [...membersSet].sort().forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      select.appendChild(opt);
+    });
+  }
+
+  // Render detailed breakdown table for a member
+  function renderMemberDetails(member, startDate, endDate) {
+    const container = document.getElementById('memberDetails');
+    if (!member) {
+      container.innerHTML = '<p>Please select a member.</p>';
+      return;
+    }
+    const { totalPoints, breakdown } = calculateMemberPoints(member, startDate, endDate);
+    if (totalPoints === 0) {
+      container.innerHTML = `<p>No points recorded for <strong>${member}</strong> in the selected date range.</p>`;
+      return;
+    }
+    let html = `<h3>Points Breakdown for <em>${member}</em> from ${startDate?.toISOString().slice(0,10) || 'start'} to ${endDate?.toISOString().slice(0,10) || 'end'}</h3>`;
+    html += '<table><thead><tr><th>Category</th><th>Points</th></tr></thead><tbody>';
+    for (const [cat, pts] of Object.entries(breakdown)) {
+      if (pts > 0) {
+        html += `<tr><td>${cat}</td><td>${pts.toFixed(2)}</td></tr>`;
+      }
+    }
+    html += `<tr style="font-weight:bold; background:#ddd;"><td>Total Points</td><td>${totalPoints.toFixed(2)}</td></tr>`;
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  // Calculate points for all members for leaderboard
+  function calculateLeaderboard(startDate, endDate) {
+    const leaderboard = [];
+    membersSet.forEach(member => {
+      const { totalPoints } = calculateMemberPoints(member, startDate, endDate);
+      if (totalPoints > 0) {
+        leaderboard.push({ member, points: totalPoints });
+      }
+    });
+    leaderboard.sort((a,b) => b.points - a.points);
+    return leaderboard;
+  }
+
+  // Render leaderboard table and chart
+  function renderLeaderboard(startDate, endDate) {
+    const container = document.getElementById('leaderboard');
+    const leaderboard = calculateLeaderboard(startDate, endDate);
+    if (leaderboard.length === 0) {
+      container.innerHTML = '<p>No points recorded for any member in the selected date range.</p>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Rank</th><th>Member</th><th>Points</th></tr></thead><tbody>';
+    leaderboard.forEach(({member, points}, i) => {
+      html += `<tr><td>${i+1}</td><td>${member}</td><td>${points.toFixed(2)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+
+    // Render Chart for top 5
+    const top5 = leaderboard.slice(0,5);
+    const ctx = document.getElementById('top5Chart').getContext('2d');
+    if (window.leaderboardChart) window.leaderboardChart.destroy();
+    window.leaderboardChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: top5.map(t => t.member),
+        datasets: [{
+          label: 'Points',
+          data: top5.map(t => t.points),
+          backgroundColor: '#5c2d91'
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // Handle user input changes
+  function onInputChange() {
+    const memberSelect = document.getElementById('memberSelect');
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+
+    const member = memberSelect.value;
+    const startDate = startDateInput.value ? new Date(startDateInput.value) : null;
+    const endDate = endDateInput.value ? new Date(endDateInput.value) : null;
+
+    renderMemberDetails(member, startDate, endDate);
+    renderLeaderboard(startDate, endDate);
+  }
+
+  // Initialization: fetch data, populate UI, set event listeners
+  async function init() {
+    document.getElementById('memberDetails').innerHTML = '<p>Loading data, please wait...</p>';
+    await fetchAllData();
+    gatherMembers();
+    populateMemberSelect();
+    document.getElementById('memberSelect').addEventListener('change', onInputChange);
+    document.getElementById('startDate').addEventListener('change', onInputChange);
+    document.getElementById('endDate').addEventListener('change', onInputChange);
+    onInputChange();
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
