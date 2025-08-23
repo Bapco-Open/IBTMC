@@ -1,91 +1,315 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Toastmasters Points Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600&family=Source+Sans+Pro&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Source Sans Pro', sans-serif; margin: 0; background: #F5F5F5; color: #333; }
-    header { background: #004165; color: white; padding: 1rem; display: flex; align-items: center; gap: 1rem; }
-    header h1 { font-family: 'Montserrat', sans-serif; margin: 0; font-size: 1.8rem; }
-    .controls { text-align: center; padding: 1rem; background: white; }
-    select { padding: 0.5rem; font-size: 1rem; min-width: 200px; }
-    #loading { text-align: center; padding: 1rem; font-style: italic; color: #666; }
-    #details { max-width: 960px; margin: 1rem auto; padding: 0 1rem; }
-    .category-header { background: #772432; color: white; padding: 0.5rem; margin-top: 1.5rem; font-family: 'Montserrat', sans-serif; }
-    table { width: 100%; border-collapse: collapse; background: white; }
-    th { background: #A9B2B1; padding: 0.5rem; text-align: left; }
-    td { padding: 0.5rem; border-bottom: 1px solid #ddd; }
-    footer { background: #004165; color: white; text-align: center; padding: 0.75rem; margin-top: 2rem; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Member Details Viewer with Search & Export</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; }
+  select, input[type="text"], button {
+    padding: 8px; font-size: 16px; margin-top: 5px; margin-bottom: 15px; 
+  }
+  #details { margin-top: 20px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background: #f0f0f0; }
+  h2, h3 { margin-top: 30px; }
+  #loading { font-style: italic; color: #666; margin-top: 10px; }
+  .filter-container { margin-bottom: 10px; }
+  .filter-container input {
+    width: 300px;
+    max-width: 90vw;
+  }
+  .table-controls {
+    margin-bottom: 15px;
+  }
+  .no-data {
+    font-style: italic;
+    color: #999;
+    margin-top: 10px;
+  }
+</style>
 </head>
 <body>
-  <header>
-    <img src="https://upload.wikimedia.org/wikipedia/commons/f/f3/Toastmasters_International_logo.svg" alt="Logo" height="50">
-    <h1>Toastmasters Points Dashboard</h1>
-  </header>
 
-  <div class="controls">
-    <label for="memberSelect">Select Member:</label>
-    <select id="memberSelect" disabled>
-      <option>Loading members...</option>
-    </select>
-  </div>
+<h1>Member Details Viewer</h1>
 
-  <div id="loading">Loading data...</div>
-  <div id="details"></div>
-  <footer>Where Leaders Are Made</footer>
+<label for="memberSelect">Select Member:</label>
+<select id="memberSelect" disabled>
+  <option value="">-- Loading members... --</option>
+</select>
 
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script>
-    const sheetUrls = {
-      "Attendance": "...csv URL...", "Early Attendance": "...", "Role Taking": "...",
-      "Last Minute Roles": "...", "Speeches": "...", "Evaluations": "...",
-      "Level Completions": "...", "Awards": "...", "ExCom & Sub.": "...",
-      "Table Topics": "...", "Summary": "...", "Total": "..."
-    };
-    const allData = {};
+<div id="loading"></div>
+<div id="details"></div>
 
-    async function fetchSheet(key) {
-      const res = await fetch(sheetUrls[key]);
-      const text = await res.text();
-      return Papa.parse(text, { header: true }).data;
-    }
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-    async function init() {
-      const keys = Object.keys(sheetUrls);
-      for (const key of keys) {
-        try { allData[key] = await fetchSheet(key); }
-        catch (e) { console.error('Error loading', key, e); }
+<script>
+const csvUrls = {
+  roleTaking:        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=23380471&single=true&output=csv",
+  speeches:          "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=170161438&single=true&output=csv",
+  evaluations:       "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=335593996&single=true&output=csv",
+  levelCompletions:  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1646576393&single=true&output=csv",
+  awards:            "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=302763050&single=true&output=csv",
+  excomSub:          "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=710668362&single=true&output=csv",
+  tableTopics:       "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=618267332&single=true&output=csv",
+  earlyAttendance:   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1928408168&single=true&output=csv",
+  summary:           "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1556398249&single=true&output=csv",
+  total:             "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1939085341&single=true&output=csv",
+  attendance:        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1192815434&single=true&output=csv",
+  lastMinuteRoles:   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=10890228&single=true&output=csv"
+};
+
+const allData = {};
+
+function fetchAndParseCSV(url) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(url, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        resolve(results.data);
+      },
+      error: (err) => {
+        reject(err);
       }
-      const summary = allData["Summary"] || [];
-      const members = summary.slice(2).map(r => r.Name).filter(n => n).sort();
-      const sel = document.getElementById("memberSelect");
-      sel.innerHTML = `<option></option>` + members.map(n => `<option>${n}</option>`).join('');
-      sel.disabled = false;
-      document.getElementById("loading").style.display = "none";
-      sel.addEventListener("change", () => renderDetails(sel.value));
-    }
+    });
+  });
+}
 
-    function renderDetails(name) {
-      const d = document.getElementById("details");
-      d.innerHTML = `<h2>${name}</h2>`;
-      for (const [category, rows] of Object.entries(allData)) {
-        const row = rows.find(r => r.Name === name);
-        if (!row) continue;
-        d.innerHTML += `<div class="category-header">${category}</div><table><tr>`;
-        Object.entries(row).forEach(([col, val]) => {
-          if (val && col !== 'Name') d.innerHTML += `<th>${col}</th>`;
-        });
-        d.innerHTML += '</tr><tr>';
-        Object.entries(row).forEach(([col, val]) => {
-          if (val && col !== 'Name') d.innerHTML += `<td>${val}</td>`;
-        });
-        d.innerHTML += '</tr></table>';
+async function init() {
+  try {
+    document.getElementById("loading").textContent = "Loading data...";
+    const keys = Object.keys(csvUrls);
+    const promises = keys.map(key => fetchAndParseCSV(csvUrls[key]));
+    const results = await Promise.all(promises);
+    keys.forEach((key, i) => {
+      allData[key] = results[i];
+    });
+    populateMemberDropdown();
+    document.getElementById("loading").textContent = "";
+    document.getElementById("memberSelect").disabled = false;
+    setupDropdownListener();
+  } catch (error) {
+    document.getElementById("loading").textContent = "Failed to load data. See console.";
+    console.error(error);
+  }
+}
+
+function getAllMemberNames() {
+  const namesSet = new Set();
+  for (const datasetName in allData) {
+    const data = allData[datasetName];
+    if (!Array.isArray(data)) continue;
+    data.forEach(row => {
+      if (row["Name"] && row["Name"].trim() !== "") {
+        namesSet.add(row["Name"].trim());
       }
-    }
+    });
+  }
+  return Array.from(namesSet).sort();
+}
 
-    window.addEventListener("DOMContentLoaded", init);
-  </script>
+function populateMemberDropdown() {
+  const select = document.getElementById("memberSelect");
+  select.innerHTML = `<option value="">-- Choose a member --</option>`;
+  const members = getAllMemberNames();
+  members.forEach(name => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  });
+}
+
+function setupDropdownListener() {
+  const select = document.getElementById("memberSelect");
+  select.addEventListener("change", () => {
+    const memberName = select.value;
+    if (!memberName) {
+      clearDetails();
+      return;
+    }
+    displayMemberDetails(memberName);
+  });
+}
+
+function clearDetails() {
+  document.getElementById("details").innerHTML = "";
+}
+
+// Display all matching rows with search and export controls per sheet
+function displayMemberDetails(name) {
+  const detailsDiv = document.getElementById("details");
+  detailsDiv.innerHTML = `<h2>Details for ${escapeHtml(name)}</h2>`;
+  let foundAny = false;
+
+  for (const [category, data] of Object.entries(allData)) {
+    const matchedRows = data.filter(row => row["Name"] && row["Name"].trim() === name);
+    if (matchedRows.length > 0) {
+      foundAny = true;
+      detailsDiv.innerHTML += `
+        <section id="section-${category}">
+          <h3>${capitalizeWords(category)}</h3>
+          <div class="table-controls">
+            <input type="text" placeholder="Filter ${capitalizeWords(category)}..." class="filter-input" data-category="${category}">
+            <button class="clear-filter" data-category="${category}">Clear Filter</button>
+            <button class="export-btn" data-category="${category}">Export to CSV</button>
+          </div>
+          <div class="table-container" data-category="${category}">
+            ${generateTableHTML(matchedRows)}
+          </div>
+        </section>
+      `;
+    }
+  }
+
+  if (!foundAny) {
+    detailsDiv.innerHTML += `<p class="no-data">No records found for this member.</p>`;
+  }
+
+  setupFilteringAndExport(name);
+}
+
+function generateTableHTML(dataArray) {
+  if (dataArray.length === 0) return "<p class='no-data'>No data</p>";
+  const columns = Object.keys(dataArray[0]);
+  let html = "<table><thead><tr>";
+  columns.forEach(col => {
+    html += `<th>${escapeHtml(col)}</th>`;
+  });
+  html += "</tr></thead><tbody>";
+  dataArray.forEach(row => {
+    html += "<tr>";
+    columns.forEach(col => {
+      const val = row[col] || "";
+      html += `<td>${escapeHtml(val)}</td>`;
+    });
+    html += "</tr>";
+  });
+  html += "</tbody></table>";
+  return html;
+}
+
+function escapeHtml(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function capitalizeWords(str) {
+  return str.replace(/([A-Z])/g, " $1")
+            .replace(/^./, s => s.toUpperCase())
+            .trim();
+}
+
+function setupFilteringAndExport(memberName) {
+  // Filtering
+  const filters = document.querySelectorAll(".filter-input");
+  filters.forEach(input => {
+    input.addEventListener("input", e => {
+      const category = e.target.dataset.category;
+      const filterVal = e.target.value.toLowerCase();
+      const tableContainer = document.querySelector(`.table-container[data-category="${category}"]`);
+      if (!tableContainer) return;
+
+      const rows = tableContainer.querySelectorAll("tbody tr");
+      rows.forEach(row => {
+        const rowText = row.textContent.toLowerCase();
+        if (rowText.indexOf(filterVal) === -1) {
+          row.style.display = "none";
+        } else {
+          row.style.display = "";
+        }
+      });
+    });
+  });
+
+  // Clear filter buttons
+  const clearBtns = document.querySelectorAll(".clear-filter");
+  clearBtns.forEach(btn => {
+    btn.addEventListener("click", e => {
+      const category = e.target.dataset.category;
+      const input = document.querySelector(`.filter-input[data-category="${category}"]`);
+      if (input) {
+        input.value = "";
+        input.dispatchEvent(new Event('input')); // trigger filtering to reset
+      }
+    });
+  });
+
+  // Export buttons
+  const exportBtns = document.querySelectorAll(".export-btn");
+  exportBtns.forEach(btn => {
+    btn.addEventListener("click", e => {
+      const category = e.target.dataset.category;
+      exportFilteredTableToCSV(category, memberName);
+    });
+  });
+}
+
+function exportFilteredTableToCSV(category, memberName) {
+  const tableContainer = document.querySelector(`.table-container[data-category="${category}"]`);
+  if (!tableContainer) return;
+
+  const rows = Array.from(tableContainer.querySelectorAll("tbody tr"))
+    .filter(row => row.style.display !== "none");
+
+  if (rows.length === 0) {
+    alert("No visible rows to export.");
+    return;
+  }
+
+  const headers = Array.from(tableContainer.querySelectorAll("thead th")).map(th => th.textContent);
+  const csvRows = [];
+  csvRows.push(headers.map(csvEscape).join(","));
+
+  rows.forEach(row => {
+    const cells = Array.from(row.querySelectorAll("td"));
+    const rowData = cells.map(cell => csvEscape(cell.textContent));
+    csvRows.push(rowData.join(","));
+  });
+
+  const csvContent = csvRows.join("\r\n");
+  const filename = `${memberName}_${category}.csv`.replace(/\s+/g, "_");
+
+  downloadCSV(csvContent, filename);
+}
+
+function csvEscape(text) {
+  if (text == null) return "";
+  // Escape quotes by doubling them and wrap text in quotes if it contains comma, newline or quotes
+  if (text.search(/("|,|\n)/g) >= 0) {
+    text = '"' + text.replace(/"/g, '""') + '"';
+  }
+  return text;
+}
+
+function downloadCSV(content, filename) {
+  const blob = new Blob([content], {type: 'text/csv;charset=utf-8;'});
+  if (navigator.msSaveBlob) { // IE 10+
+    navigator.msSaveBlob(blob, filename);
+  } else {
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+}
+
+window.addEventListener("DOMContentLoaded", init);
+</script>
+
 </body>
 </html>
