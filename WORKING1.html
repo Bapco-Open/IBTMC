@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Toastmasters Member Details Viewer</title>
+<style>
+  /* Toastmasters brand colors */
+  :root {
+    --tm-orange: #ff6f00;
+    --tm-darkblue: #003366;
+    --tm-gray-light: #f7f7f7;
+    --tm-gray-dark: #666666;
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 900px;
+    margin: 30px auto;
+    background: var(--tm-gray-light);
+    color: var(--tm-darkblue);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 30px;
+  }
+
+  header img {
+    height: 48px;
+  }
+
+  header h1 {
+    font-weight: 700;
+    font-size: 1.8rem;
+    color: var(--tm-darkblue);
+    margin: 0;
+  }
+
+  label {
+    font-weight: 600;
+    font-size: 1rem;
+    display: block;
+    margin-bottom: 6px;
+    color: var(--tm-darkblue);
+  }
+
+  select, input[type="text"], button {
+    padding: 10px 14px;
+    font-size: 1rem;
+    border: 2px solid var(--tm-orange);
+    border-radius: 5px;
+    outline-offset: 2px;
+    transition: border-color 0.3s ease;
+    font-weight: 600;
+  }
+
+  select:disabled {
+    background-color: #e0e0e0;
+    cursor: not-allowed;
+  }
+
+  select:hover:not(:disabled), input[type="text"]:hover, button:hover {
+    border-color: var(--tm-darkblue);
+    cursor: pointer;
+  }
+
+  button {
+    background-color: var(--tm-orange);
+    color: white;
+    border: none;
+    font-weight: 700;
+    margin-left: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  button:hover {
+    background-color: #e65a00;
+  }
+
+  #loading {
+    font-style: italic;
+    color: var(--tm-gray-dark);
+    margin-top: 10px;
+  }
+
+  h2 {
+    margin-top: 40px;
+    color: var(--tm-darkblue);
+    font-weight: 700;
+  }
+
+  h3 {
+    margin-top: 25px;
+    color: var(--tm-orange);
+    font-weight: 700;
+  }
+
+  .filter-container {
+    margin-bottom: 10px;
+  }
+
+  .filter-input {
+    width: 280px;
+    max-width: 100%;
+    border: 2px solid var(--tm-orange);
+    border-radius: 4px;
+  }
+
+  .table-controls {
+    margin-bottom: 15px;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 8px;
+    background: white;
+    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  th, td {
+    border-bottom: 1px solid #ddd;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 0.95rem;
+  }
+
+  th {
+    background-color: var(--tm-orange);
+    color: white;
+    font-weight: 700;
+  }
+
+  tbody tr:hover {
+    background-color: #ffe0b2;
+  }
+
+  .no-data {
+    font-style: italic;
+    color: var(--tm-gray-dark);
+    margin-top: 10px;
+  }
+
+  /* Responsive tweaks */
+  @media (max-width: 480px) {
+    select, input[type="text"], button {
+      width: 100%;
+      margin-top: 8px;
+      margin-left: 0;
+    }
+    .table-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="https://www.toastmasters.org/assets/images/logo.svg" alt="Toastmasters Logo" />
+  <h1>Member Details Viewer</h1>
+</header>
+
+<label for="memberSelect">Select Member:</label>
+<select id="memberSelect" disabled>
+  <option value="">-- Loading members... --</option>
+</select>
+
+<div id="loading"></div>
+<div id="details"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<script>
+const csvUrls = {
+  roleTaking:        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=23380471&single=true&output=csv",
+  speeches:          "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=170161438&single=true&output=csv",
+  evaluations:       "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=335593996&single=true&output=csv",
+  levelCompletions:  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1646576393&single=true&output=csv",
+  awards:            "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=302763050&single=true&output=csv",
+  excomSub:          "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=710668362&single=true&output=csv",
+  tableTopics:       "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=618267332&single=true&output=csv",
+  earlyAttendance:   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1928408168&single=true&output=csv",
+  summary:           "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1556398249&single=true&output=csv",
+  total:             "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1939085341&single=true&output=csv",
+  attendance:        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=1192815434&single=true&output=csv",
+  lastMinuteRoles:   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDdWUbjkeHCHq6fBUKFUmq8TJ_Mp0V3zhzmgm5Ds7Fed0dqdqR5c2oy2SzJuvVwwSJ6egCfB6FALPa/pub?gid=10890228&single=true&output=csv"
+};
+
+const allData = {};
+
+function fetchAndParseCSV(url) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(url, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        resolve(results.data);
+      },
+      error: (err) => {
+        reject(err);
+      }
+    });
+  });
+}
+
+async function init() {
+  try {
+    document.getElementById("loading").textContent = "Loading data...";
+    const keys = Object.keys(csvUrls);
+    const promises = keys.map(key => fetchAndParseCSV(csvUrls[key]));
+    const results = await Promise.all(promises);
+    keys.forEach((key, i) => {
+      allData[key] = results[i];
+    });
+    populateMemberDropdown();
+    document.getElementById("loading").textContent = "";
+    document.getElementById("memberSelect").disabled = false;
+    setupDropdownListener();
+  } catch (error) {
+    document.getElementById("loading").textContent = "Failed to load data. See console.";
+    console.error(error);
+  }
+}
+
+function getAllMemberNames() {
+  const namesSet = new Set();
+  for (const datasetName in allData) {
+    const data = allData[datasetName];
+    if (!Array.isArray(data)) continue;
+    data.forEach(row => {
+      if (row["Name"] && row["Name"].trim() !== "") {
+        namesSet.add(row["Name"].trim());
+      }
+    });
+  }
+  return Array.from(namesSet).sort();
+}
+
+function populateMemberDropdown() {
+  const select = document.getElementById("memberSelect");
+  select.innerHTML = `<option value="">-- Choose a member --</option>`;
+  const members = getAllMemberNames();
+  members.forEach(name => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  });
+}
+
+function setupDropdownListener() {
+  const select = document.getElementById("memberSelect");
+  select.addEventListener("change", () => {
+    const memberName = select.value;
+    if (!memberName) {
+      clearDetails();
+      return;
+    }
+    displayMemberDetails(memberName);
+  });
+}
+
+function clearDetails() {
+  document.getElementById("details").innerHTML = "";
+}
+
+function displayMemberDetails(name) {
+  const detailsDiv = document.getElementById("details");
+  detailsDiv.innerHTML = `<h2>Details for ${escapeHtml(name)}</h2>`;
+  let foundAny = false;
+
+  for (const [category, data] of Object.entries(allData)) {
+    const matchedRows = data.filter(row => row["Name"] && row["Name"].trim() === name);
+    if (matchedRows.length > 0) {
+      foundAny = true;
+      detailsDiv.innerHTML += `
+        <section id="section-${category}">
+          <h3>${capitalizeWords(category)}</h3>
+          <div class="table-controls">
+            <input type="text" placeholder="Filter ${capitalizeWords(category)}..." class="filter-input" data-category="${category}">
+            <button class="clear-filter" data-category="${category}">Clear Filter</button>
+            <button class="export-btn" data-category="${category}">Export to CSV</button>
+          </div>
+          <div class="table-container" data-category="${category}">
+            ${generateTableHTML(matchedRows)}
+          </div>
+        </section>
+      `;
+    }
+  }
+
+  if (!foundAny) {
+    detailsDiv.innerHTML += `<p class="no-data">No records found for this member.</p>`;
+  }
+
+  setupFilteringAndExport(name);
+}
+
+function generateTableHTML(dataArray) {
+  if (dataArray.length === 0) return "<p class='no-data'>No data</p>";
+  const columns = Object.keys(dataArray[0]);
+  let html = "<table><thead><tr>";
+  columns.forEach(col => {
+    html += `<th>${escapeHtml(col)}</th>`;
+  });
+  html += "</tr></thead><tbody>";
+  dataArray.forEach(row => {
+    html += "<tr>";
+    columns.forEach(col => {
+      const val = row[col] || "";
+      html += `<td>${escapeHtml(val)}</td>`;
+    });
+    html += "</tr>";
+  });
+  html += "</tbody></table>";
+  return html;
+}
+
+function escapeHtml(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function capitalizeWords(str) {
+  return str.replace(/([A-Z])/g, " $1")
+            .replace(/^./, s => s.toUpperCase())
+            .trim();
+}
+
+function setupFilteringAndExport(memberName) {
+  const filters = document.querySelectorAll(".filter-input");
+  filters.forEach(input => {
+    input.addEventListener("input", e => {
+      const category = e.target.dataset.category;
+      const filterVal = e.target.value.toLowerCase();
+      const tableContainer = document.querySelector(`.table-container[data-category="${category}"]`);
+      if (!tableContainer) return;
+
+      const rows = tableContainer.querySelectorAll("tbody tr");
+      rows.forEach(row => {
+        const rowText = row.textContent.toLowerCase();
+        row.style.display = rowText.indexOf(filterVal) === -1 ? "none" : "";
+      });
+    });
+  });
+
+  const clearBtns = document.querySelectorAll(".clear-filter");
+  clearBtns.forEach(btn => {
+    btn.addEventListener("click", e => {
+      const category = e.target.dataset.category;
+      const input = document.querySelector(`.filter-input[data-category="${category}"]`);
+      if (input) {
+        input.value = "";
+        input.dispatchEvent(new Event('input'));
+      }
+    });
+  });
+
+  const exportBtns = document.querySelectorAll(".export-btn");
+  exportBtns.forEach(btn => {
+    btn.addEventListener("click", e => {
+      const category = e.target.dataset.category;
+      exportFilteredTableToCSV(category, memberName);
+    });
+  });
+}
+
+function exportFilteredTableToCSV(category, memberName) {
+  const tableContainer = document.querySelector(`.table-container[data-category="${category}"]`);
+  if (!tableContainer) return;
+
+  const rows = Array.from(tableContainer.querySelectorAll("tbody tr"))
+    .filter(row => row.style.display !== "none");
+
+  if (rows.length === 0) {
+    alert("No visible rows to export.");
+    return;
+  }
+
+  const headers = Array.from(tableContainer.querySelectorAll("thead th")).map(th => th.textContent);
+  const csvRows = [];
+  csvRows.push(headers.map(csvEscape).join(","));
+
+  rows.forEach(row => {
+    const cells = Array.from(row.querySelectorAll("td"));
+    const rowData = cells.map(cell => csvEscape(cell.textContent));
+    csvRows.push(rowData.join(","));
+  });
+
+  const csvContent = csvRows.join("\r\n");
+  const filename = `${memberName}_${category}.csv`.replace(/\s+/g, "_");
+
+  downloadCSV(csvContent, filename);
+}
+
+function csvEscape(text) {
+  if (text == null) return "";
+  if (text.search(/("|,|\n)/g) >= 0) {
+    text = '"' + text.replace(/"/g, '""') + '"';
+  }
+  return text;
+}
+
+function downloadCSV(content, filename) {
+  const blob = new Blob([content], {type: 'text/csv;charset=utf-8;'});
+  if (navigator.msSaveBlob) {
+    navigator.msSaveBlob(blob, filename);
+  } else {
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+}
+
+window.addEventListener("DOMContentLoaded", init);
+</script>
+
+</body>
+</html>
